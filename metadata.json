@@ -1,0 +1,6 @@
+{
+  "name": "Formulario Institucional INEGI - Inventario Federal de Programas",
+  "description": "Sistema institucional moderno de captura de información para el Inventario Federal de Programas y Acciones de Desarrollo Social 2024 y 2025, con guardado automático, modo offline con IndexedDB y sincronización REST.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

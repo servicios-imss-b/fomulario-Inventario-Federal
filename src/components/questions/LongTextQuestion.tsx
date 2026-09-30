@@ -1,0 +1,123 @@
+import React from 'react';
+import { PreguntaConfig } from '../../types/form';
+import { Bookmark } from 'lucide-react';
+
+interface LongTextQuestionProps {
+  pregunta: PreguntaConfig;
+  valor: string;
+  fuente?: string;
+  error?: string;
+  onChange: (valor: string, fuente?: string) => void;
+}
+
+export const LongTextQuestion: React.FC<LongTextQuestionProps> = ({
+  pregunta,
+  valor = '',
+  fuente = '',
+  error,
+  onChange,
+}) => {
+  const max = pregunta.maxCaracteres || 300;
+  const charsUsed = (valor || '').length;
+  const isNearLimit = charsUsed >= max * 0.9;
+  const isAtLimit = charsUsed >= max;
+
+  const [mostrarFuente, setMostrarFuente] = React.useState(Boolean(fuente));
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    let newVal = e.target.value;
+    if (newVal.length > max) {
+      newVal = newVal.substring(0, max);
+    }
+    onChange(newVal, fuente);
+  };
+
+  const handleFuenteChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let newFuente = e.target.value;
+    if (newFuente.length > max) {
+      newFuente = newFuente.substring(0, max);
+    }
+    onChange(valor, newFuente);
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-start justify-between gap-2">
+        <label
+          htmlFor={`preg_${pregunta.id}`}
+          className="text-sm sm:text-base font-medium text-stone-100 leading-snug"
+        >
+          {pregunta.pregunta}
+          {pregunta.requerida && (
+            <span className="text-rose-400 ml-1 font-bold" title="Campo obligatorio">*</span>
+          )}
+        </label>
+        {pregunta.capturarFuente && (
+          <button
+            type="button"
+            onClick={() => setMostrarFuente(!mostrarFuente)}
+            className="text-[11px] sm:text-xs text-[#A57F2C] hover:text-amber-200 underline flex items-center gap-1 shrink-0"
+          >
+            <Bookmark className="w-3 h-3" />
+            {mostrarFuente ? 'Ocultar fuente' : 'Capturar fuente'}
+          </button>
+        )}
+      </div>
+
+      {pregunta.instruccion && (
+        <p className="text-xs text-stone-300 italic bg-black/20 p-2 rounded border-l-2 border-[#A57F2C]">
+          {pregunta.instruccion}
+        </p>
+      )}
+
+      <div className="relative">
+        <textarea
+          id={`preg_${pregunta.id}`}
+          maxLength={max}
+          rows={3}
+          value={valor || ''}
+          onChange={handleChange}
+          placeholder={pregunta.placeholder || 'Ingrese la descripción detallada aquí (máx. 300 caracteres)...'}
+          className={`w-full px-3.5 py-2.5 rounded-lg glass-input text-sm text-stone-100 placeholder:text-stone-400 resize-y min-h-[90px] ${
+            error ? 'border-rose-500 focus:border-rose-400 focus:ring-rose-500/20' : ''
+          }`}
+        />
+        <div className="flex justify-between items-center mt-1 px-1 text-[11px]">
+          <span className="text-stone-400">
+            {error ? <span className="text-rose-400 font-medium">{error}</span> : 'Máximo 300 caracteres según norma'}
+          </span>
+          <span
+            className={`font-mono font-medium ${
+              isAtLimit
+                ? 'text-rose-400 font-bold'
+                : isNearLimit
+                ? 'text-amber-300'
+                : 'text-[#A57F2C]'
+            }`}
+          >
+            {charsUsed} / {max}
+          </span>
+        </div>
+      </div>
+
+      {pregunta.capturarFuente && mostrarFuente && (
+        <div className="mt-2 p-2.5 rounded-md bg-[#611232]/30 border border-[#A57F2C]/30 space-y-1">
+          <label className="text-xs font-semibold text-[#A57F2C] flex items-center gap-1">
+            <Bookmark className="w-3 h-3" /> Fuente documental / normativa:
+          </label>
+          <input
+            type="text"
+            maxLength={max}
+            value={fuente || ''}
+            onChange={handleFuenteChange}
+            placeholder="Especifique documento, numeral, artículo, enlace o fecha..."
+            className="w-full px-2.5 py-1.5 rounded glass-input text-xs text-stone-200"
+          />
+          <div className="text-right text-[10px] text-stone-400">
+            {(fuente || '').length} / {max}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
