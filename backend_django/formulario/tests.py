@@ -39,6 +39,17 @@ class FormularioBackendTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('300 caracteres', response.data['error'])
 
+    def test_pregunta_10_acepta_hasta_500_caracteres(self):
+        payload = {
+            "pregunta_id": "10",
+            "seccion_id": "datos_generales",
+            "pregunta": "10. Durante año reportado, ¿qué otras dependencias participaron como responsables en la operación del programa?",
+            "respuesta": "A" * 478,
+        }
+        response = self.client.post('/api/respuestas/', payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(Respuesta.objects.get(pregunta_id='10').respuesta), 478)
+
     def test_validacion_extension_archivo(self):
         """Rechaza extensiones no autorizadas (solo se aceptan .pdf, .xls, .xlsx)"""
         payload = {

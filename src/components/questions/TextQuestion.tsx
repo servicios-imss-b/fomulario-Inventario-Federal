@@ -1,12 +1,13 @@
 import React from 'react';
 import { PreguntaConfig } from '../../types/form';
-import { Bookmark } from 'lucide-react';
+import { Bookmark, ExternalLink } from 'lucide-react';
 
 interface TextQuestionProps {
   pregunta: PreguntaConfig;
   valor: string;
   fuente?: string;
   error?: string;
+  commentAction?: React.ReactNode;
   onChange: (valor: string, fuente?: string) => void;
 }
 
@@ -15,12 +16,16 @@ export const TextQuestion: React.FC<TextQuestionProps> = ({
   valor = '',
   fuente = '',
   error,
+  commentAction,
   onChange,
 }) => {
   const max = pregunta.maxCaracteres || 300;
   const charsUsed = (valor || '').length;
   const isNearLimit = charsUsed >= max * 0.9;
   const isAtLimit = charsUsed >= max;
+  const enlaceOficial = pregunta.id === '13' && /^https?:\/\/\S+$/i.test(valor.trim())
+    ? valor.trim()
+    : '';
 
   const [mostrarFuente, setMostrarFuente] = React.useState(Boolean(fuente));
 
@@ -82,12 +87,13 @@ export const TextQuestion: React.FC<TextQuestionProps> = ({
             error ? 'border-rose-500 focus:border-rose-400 focus:ring-rose-500/20' : ''
           }`}
         />
-        <div className="flex justify-between items-center mt-1 px-1 text-[11px]">
+        <div className={`${commentAction ? 'grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1' : 'flex justify-between'} mt-1 items-center px-1 text-[10px] sm:text-[11px]`}>
           <span className="text-stone-400">
             {error ? <span className="text-rose-400 font-medium">{error}</span> : 'Límite de caracteres'}
           </span>
+          {commentAction && <div className="justify-self-center [&_button]:whitespace-nowrap [&_button]:px-1.5 [&_button]:py-1 [&_button]:text-[10px] sm:[&_button]:text-[11px]">{commentAction}</div>}
           <span
-            className={`font-mono font-medium ${
+            className={`font-mono font-medium ${commentAction ? 'text-right' : ''} ${
               isAtLimit
                 ? 'text-rose-400 font-bold'
                 : isNearLimit
@@ -98,6 +104,17 @@ export const TextQuestion: React.FC<TextQuestionProps> = ({
             {charsUsed} / {max}
           </span>
         </div>
+        {enlaceOficial && (
+          <a
+            href={enlaceOficial}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-[#A57F2C] underline underline-offset-2 hover:text-amber-200"
+          >
+            <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+            Abrir documento oficial
+          </a>
+        )}
       </div>
 
       {pregunta.capturarFuente && mostrarFuente && (

@@ -19,6 +19,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenInfo,
   isLanding = false,
 }) => {
+  const [logoNoDisponible, setLogoNoDisponible] = React.useState(false);
+
   return (
     <header
       className={`sticky top-0 z-40 w-full text-white ${
@@ -31,11 +33,18 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex h-[68px] items-center justify-between gap-3">
           {/* Logo & Identidad Institucional */}
           <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-            <img
-              src="https://imssbienestar.gob.mx/assets/img/imb_b.svg"
-              alt="IMSS Bienestar"
-              className="h-[42px] w-auto shrink-0 object-contain"
-            />
+            {!logoNoDisponible ? (
+              <img
+                src="https://imssbienestar.gob.mx/assets/img/imb_b.svg"
+                alt="IMSS Bienestar"
+                className="h-[42px] w-auto shrink-0 object-contain"
+                onError={() => setLogoNoDisponible(true)}
+              />
+            ) : (
+              <span className="text-[10px] font-bold leading-tight text-white">
+                IMSS<br />BIENESTAR
+              </span>
+            )}
             <div className="min-w-0 leading-tight">
               <h1 className="truncate text-xs font-semibold text-white sm:text-sm">
                 Cuestionario de equipamiento

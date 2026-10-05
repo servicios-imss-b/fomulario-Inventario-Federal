@@ -17,9 +17,11 @@ class RespuestaSerializer(serializers.ModelSerializer):
         ]
 
     def validate_respuesta(self, value):
-        if isinstance(value, str) and len(value) > 300:
+        pregunta_id = self.initial_data.get('pregunta_id')
+        max_caracteres = 500 if pregunta_id in {'10', '14', '15', 'comentario_7'} else 300
+        if isinstance(value, str) and len(value) > max_caracteres:
             raise serializers.ValidationError(
-                "La respuesta excede el límite máximo de 300 caracteres establecido por la norma institucional."
+                f"La respuesta excede el límite máximo de {max_caracteres} caracteres establecido por la norma institucional."
             )
         return value
 

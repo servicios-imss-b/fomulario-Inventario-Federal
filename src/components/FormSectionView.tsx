@@ -16,13 +16,20 @@ import {
   Eye,
   EyeOff,
   Layers,
+  Lock,
+  MessageSquare,
+  Unlock,
 } from 'lucide-react';
 
 interface FormSectionViewProps {
   seccion: SeccionConfig;
   respuestas: Record<string, RespuestaItem>;
+  clavePrograma: string;
+  claveBloqueada: boolean;
   isFirstSection: boolean;
   isLastQuestionSection: boolean;
+  onToggleClaveBloqueada: () => void;
+  onClaveProgramaChange: (valor: string) => void;
   onRespuestaChange: (preguntaId: string, seccionId: string, pregunta: string, valor: any, fuente?: string) => void;
   onNext: () => void;
   onPrev: () => void;
@@ -31,8 +38,12 @@ interface FormSectionViewProps {
 export const FormSectionView: React.FC<FormSectionViewProps> = ({
   seccion,
   respuestas,
+  clavePrograma,
+  claveBloqueada,
   isFirstSection,
   isLastQuestionSection,
+  onToggleClaveBloqueada,
+  onClaveProgramaChange,
   onRespuestaChange,
   onNext,
   onPrev,
@@ -41,8 +52,8 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
   const [mostrarAlerta, setMostrarAlerta] = useState(false);
   const [mostrarRespondidas, setMostrarRespondidas] = useState(false);
   const [preguntaEnEdicion, setPreguntaEnEdicion] = useState<string | null>(null);
+  const [comentariosAbiertos, setComentariosAbiertos] = useState<Record<string, boolean>>({});
 
-  // Clear errors when section changes
   useEffect(() => {
     setErrores({});
     setMostrarAlerta(false);
@@ -51,14 +62,13 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [seccion.id]);
 
-  // Check if a question's dependency condition is met
   const isQuestionVisible = (pregunta: PreguntaConfig): boolean => {
     if (!pregunta.dependeDe) return true;
     const parentResponse = respuestas[pregunta.dependeDe.preguntaId]?.valor;
 
     if (Array.isArray(pregunta.dependeDe.valor)) {
       if (Array.isArray(parentResponse)) {
-        return pregunta.dependeDe.valor.some((v) => parentResponse.includes(v));
+        return pregunta.dependeDe.valor.some((valor) => parentResponse.includes(valor));
       }
       return pregunta.dependeDe.valor.includes(parentResponse);
     }
@@ -106,6 +116,9 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
     return Boolean(valor);
   };
 
+  const mostrarRespuestaS313 = (preguntaId: string): boolean =>
+    respuestas['clave_programa']?.valor === 'S313' && ['10', '11', '12', '13', '14', '15', '16'].includes(preguntaId);
+
   const preguntasVisibles = seccion.preguntas.filter(isQuestionVisible);
   const respondidas = preguntasVisibles.filter(isQuestionAnswered);
   const preguntasMostradas = mostrarRespondidas
@@ -113,7 +126,7 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
     : preguntasVisibles.filter((pregunta) => {
         const esRespuestaEnEdicion = ['texto_corto', 'texto_largo', 'numero', 'grilla_cuantificacion'].includes(pregunta.tipo)
           && preguntaEnEdicion === pregunta.id;
-        return !isQuestionAnswered(pregunta) || esRespuestaEnEdicion;
+        return !isQuestionAnswered(pregunta) || esRespuestaEnEdicion || mostrarRespuestaS313(pregunta.id);
       });
 
   const renderQuestion = (preg: PreguntaConfig) => {
@@ -122,15 +135,35 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
     if (!mostrarRespondidas && isQuestionAnswered(preg)) {
       const esRespuestaEnEdicion = ['texto_corto', 'texto_largo', 'numero', 'grilla_cuantificacion'].includes(preg.tipo)
         && preguntaEnEdicion === preg.id;
-      if (!esRespuestaEnEdicion) return null;
+      if (!esRespuestaEnEdicion && !mostrarRespuestaS313(preg.id)) return null;
     }
 
     const currentResp = respuestas[preg.id];
     const valor = currentResp ? currentResp.valor : '';
     const fuente = currentResp ? currentResp.fuente : '';
     const error = errores[preg.id];
+    const permiteComentario = Number.parseFloat(preg.id) >= 6;
+    const comentarioId = `comentario_${preg.id}`;
+    const comentario = String(respuestas[comentarioId]?.valor ?? '');
+    const maxComentario = comentarioId === 'comentario_7' ? 500 : 300;
+    const comentarioAbierto = comentariosAbiertos[preg.id] ?? Boolean(comentario);
 
     const isGuindaCard = preg.id === '20' || preg.id === '24' || preg.id === '30' || preg.id === '35';
+    const commentButton = (
+      <button
+        type="button"
+        aria-expanded={comentarioAbierto}
+        aria-controls={`comentario-pregunta-${preg.id}`}
+        onClick={() => setComentariosAbiertos((actuales) => ({
+          ...actuales,
+          [preg.id]: !comentarioAbierto,
+        }))}
+        className="inline-flex items-center gap-1 rounded-md border border-[#A57F2C]/35 px-2 py-1.5 text-xs font-semibold text-[#A57F2C] transition hover:bg-[#A57F2C]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A57F2C]"
+      >
+        <MessageSquare className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        {comentarioAbierto ? 'Ocultar comentarios' : comentario ? 'Ver comentarios' : 'Agregar comentario'}
+      </button>
+    );
 
     return (
       <div
@@ -161,6 +194,7 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
                   valor={valor}
                   fuente={fuente}
                   error={error}
+                  commentAction={permiteComentario ? commentButton : undefined}
                   onChange={(val, f) => onRespuestaChange(preg.id, seccion.id, preg.pregunta, val, f)}
                 />
               );
@@ -171,6 +205,8 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
                   valor={valor}
                   fuente={fuente}
                   error={error}
+                  readOnly={clavePrograma === 'S313' && ['10', '11'].includes(preg.id)}
+                  commentAction={permiteComentario ? commentButton : undefined}
                   onChange={(val, f) => onRespuestaChange(preg.id, seccion.id, preg.pregunta, val, f)}
                 />
               );
@@ -235,16 +271,74 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
               return null;
           }
         })()}
+        {permiteComentario && !['texto_corto', 'texto_largo'].includes(preg.tipo) && (
+          <div className="mt-4 border-t border-[#A57F2C]/20 pt-3">
+            {commentButton}
+          </div>
+        )}
+        {permiteComentario && comentarioAbierto && (
+          <div id={`comentario-pregunta-${preg.id}`} className="mt-3 space-y-1.5">
+            <label htmlFor={comentarioId} className="block text-xs font-medium text-stone-300">
+              Comentario de la pregunta {preg.id}
+            </label>
+            <textarea
+              id={comentarioId}
+              rows={3}
+              maxLength={maxComentario}
+              value={comentario}
+              onChange={(event) => onRespuestaChange(
+                comentarioId,
+                seccion.id,
+                `Comentario de la pregunta ${preg.id}`,
+                event.target.value
+              )}
+              placeholder="Escribe un comentario..."
+              className="w-full resize-y rounded-lg glass-input px-3 py-2 text-sm text-stone-100 placeholder:text-stone-400"
+            />
+            <p className="text-right text-[11px] text-stone-400">{comentario.length} / {maxComentario}</p>
+          </div>
+        )}
       </div>
     );
   };
-
   // Agrupamiento visual por subsección
   let lastSubseccion = '';
 
   return (
     <div className="relative min-h-[calc(100vh-8rem)] py-6 sm:py-8 px-4 sm:px-6 max-w-4xl mx-auto flex flex-col justify-between z-10">
       <div className="space-y-6">
+        <div className="glass-institutional rounded-2xl border border-[#A57F2C]/30 p-4 shadow-xl sm:p-5">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <label htmlFor="clave-programa" className="block text-sm font-semibold text-stone-100">
+              Clave del programa
+            </label>
+            {clavePrograma && (
+              <button
+                type="button"
+                onClick={onToggleClaveBloqueada}
+                aria-pressed={!claveBloqueada}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-[#A57F2C]/40 px-2.5 py-1.5 text-xs font-medium text-stone-200 transition hover:bg-[#A57F2C]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A57F2C]"
+                title={claveBloqueada ? 'Desbloquear la clave para cambiarla' : 'Bloquear la clave actual'}
+              >
+                {claveBloqueada ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+                {claveBloqueada ? 'Desbloquear clave' : 'Bloquear clave'}
+              </button>
+            )}
+          </div>
+          <select
+            id="clave-programa"
+            value={clavePrograma}
+            disabled={claveBloqueada && Boolean(clavePrograma)}
+            onChange={(event) => onClaveProgramaChange(event.target.value)}
+            className="w-full rounded-lg border border-[#A57F2C]/50 bg-[#002F2A] px-3 py-2.5 text-sm text-white outline-none transition focus:border-[#A57F2C] focus:ring-2 focus:ring-[#A57F2C]/30 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            <option value="">Selecciona una clave</option>
+            {['S313', 'E001', 'U013', 'S200', 'U313', 'E003', 'E004', 'E006'].map((clave) => (
+              <option key={clave} value={clave}>{clave}</option>
+            ))}
+          </select>
+        </div>
+
         {/* Encabezado de la Sección - Card Transparente y Limpia */}
         <div className="glass-institutional rounded-2xl p-5 sm:p-7 border border-[#A57F2C]/30 shadow-xl space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">

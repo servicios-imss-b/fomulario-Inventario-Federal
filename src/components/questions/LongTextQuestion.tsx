@@ -7,6 +7,8 @@ interface LongTextQuestionProps {
   valor: string;
   fuente?: string;
   error?: string;
+  readOnly?: boolean;
+  commentAction?: React.ReactNode;
   onChange: (valor: string, fuente?: string) => void;
 }
 
@@ -15,6 +17,8 @@ export const LongTextQuestion: React.FC<LongTextQuestionProps> = ({
   valor = '',
   fuente = '',
   error,
+  readOnly = false,
+  commentAction,
   onChange,
 }) => {
   const max = pregunta.maxCaracteres || 300;
@@ -76,18 +80,20 @@ export const LongTextQuestion: React.FC<LongTextQuestionProps> = ({
           maxLength={max}
           rows={3}
           value={valor || ''}
+          readOnly={readOnly}
+          aria-readonly={readOnly}
+          title={readOnly ? 'Respuesta fija para la clave S313' : undefined}
           onChange={handleChange}
           placeholder={pregunta.placeholder || 'Ingrese la descripción detallada aquí (máx. 300 caracteres)...'}
-          className={`w-full px-3.5 py-2.5 rounded-lg glass-input text-sm text-stone-100 placeholder:text-stone-400 resize-y min-h-[90px] ${
-            error ? 'border-rose-500 focus:border-rose-400 focus:ring-rose-500/20' : ''
-          }`}
+          className={`w-full px-3.5 py-2.5 rounded-lg glass-input text-sm text-stone-100 placeholder:text-stone-400 resize-y min-h-[90px] ${error ? 'border-rose-500 focus:border-rose-400 focus:ring-rose-500/20' : ''} ${readOnly ? 'read-only:cursor-not-allowed read-only:bg-black/40 read-only:text-stone-300 read-only:border-stone-500/40' : ''}`}
         />
-        <div className="flex justify-between items-center mt-1 px-1 text-[11px]">
+        <div className={`${commentAction ? 'grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1' : 'flex justify-between'} mt-1 items-center px-1 text-[10px] sm:text-[11px]`}>
           <span className="text-stone-400">
-            {error ? <span className="text-rose-400 font-medium">{error}</span> : 'Máximo 300 caracteres según norma'}
+            {error ? <span className="text-rose-400 font-medium">{error}</span> : `Máximo ${max} caracteres`}
           </span>
+          {commentAction && <div className="justify-self-center [&_button]:whitespace-nowrap [&_button]:px-1.5 [&_button]:py-1 [&_button]:text-[10px] sm:[&_button]:text-[11px]">{commentAction}</div>}
           <span
-            className={`font-mono font-medium ${
+            className={`font-mono font-medium ${commentAction ? 'text-right' : ''} ${
               isAtLimit
                 ? 'text-rose-400 font-bold'
                 : isNearLimit

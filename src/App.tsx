@@ -40,6 +40,58 @@ import { ASSET_IMAGES } from './assets/images';
 
 export type AppStep = 'landing' | 'section' | 'archivos' | 'review' | 'success';
 
+const S313_RESPUESTA_PREGUNTA_10 = 'La persona Tesorera del COSABI será la única y absoluta responsable de la recepción, custodia, administración y ejecución del subsidio ministrado para los USPN, debiendo resguardar y conservar la documentación original comprobatoria correspondiente al Expediente de Actividades. Dicha información deberá estar disponible en copia simple en la USPN para cualquier requerimiento que soliciten directamente las instancias fiscalizadoras y/o IMSS-BIENESTAR para su consulta in situ.';
+const S313_RESPUESTA_PREGUNTA_11 = 'Secretaría del Bienestar';
+const S313_RESPUESTA_PREGUNTA_7_ANTERIOR = 'Nivel Comunitario (Ejecución y Vigilancia):\nComité de La Clínica es Nuestra (COSABI)\nComité de Contraloría Social\nNivel Institucional (Normatividad y Operación):\nIMSS-BIENESTAR\nSecretaría de Bienestar / Facilitadores Autorizados (FA)\nComité Técnico del PLCEN (titular de la Dirección General de IMSS-BIENESTAR)';
+const S313_COMENTARIO_DIRECTOR = 'Servicios de Salud del Instituto Mexicano del Seguro Social para el Bienestar (IMSS-BIENESTAR): Director General, Alejandro Antonio Calderón Alipi';
+const S313_RESPUESTAS_ADICIONALES: Record<string, { seccionId: string; pregunta: string; valor: string }> = {
+  '12': {
+    seccionId: 'normatividad_objetivo',
+    pregunta: '12. ¿Cuál es el nombre del instrumento normativo que reguló la operación del programa en año reportado?',
+    valor: 'ACUERDO por el que se emiten las Reglas de Operación del Programa la Clínica es Nuestra.',
+  },
+  '13': {
+    seccionId: 'normatividad_objetivo',
+    pregunta: '13. Proporcione el enlace web oficial donde se pueda consultar o descargar el documento normativo mencionado en la pregunta anterior.',
+    valor: 'https://dof.gob.mx/nota_detalle_popup.php?codigo=5722565',
+  },
+  '14': {
+    seccionId: 'normatividad_objetivo',
+    pregunta: '14. Proporcione el Objetivo General del Programa durante año reportado.',
+    valor: 'Lograr que los establecimientos de primer nivel destinados a la prestación ambulatoria de servicios de salud para las personas sin seguridad social, mejoren sus condiciones actuales mediante la rehabilitación, equipamiento, y/o mantenimiento de la USPN por conducto del COSABI, para contribuir a incrementar la calidad en la atención que brindan.',
+  },
+  '15': {
+    seccionId: 'poblacion_potencial_objetivo',
+    pregunta: '15. ¿Cuál fue la definición de la Población Potencial del programa durante año reportado?',
+    valor: 'Las USPN comprendidas dentro del Programa IMSS-Bienestar y de IMSS-BIENESTAR, de acuerdo a los numerales 3.3.1 y 3.3.2 de las presentes ROP.\nUnidades de salud programadas en el ejercicio fiscal 2024 para ser intervenidas con subsidios del Programa La Clínica Es Nuestra, de acuerdo a los numerales 3.3.1 y 3.3.2 de las presentes ROP y la suficiencia presupuestaria.',
+  },
+  '16': {
+    seccionId: 'poblacion_potencial_objetivo',
+    pregunta: '16. Registre cada unidad de medida utilizada para cuantificar la población potencial y la cantidad correspondiente.',
+    valor: 'Número de personas sin acceso a la seguridad social',
+  },
+  comentario_6: {
+    seccionId: 'datos_generales',
+    pregunta: 'Comentario de la pregunta 6',
+    valor: S313_COMENTARIO_DIRECTOR,
+  },
+  comentario_7: {
+    seccionId: 'datos_generales',
+    pregunta: 'Comentario de la pregunta 7',
+    valor: 'Nivel Comunitario (Ejecución y Vigilancia):\nComité de La Clínica es Nuestra (COSABI)\nComité de Contraloría Social\nNivel Institucional (Normatividad y Operación):\nIMSS-BIENESTAR\nSecretaría de Bienestar / Facilitadores Autorizados (FA)\nComité Técnico del PLCEN (titular de la Dirección General de IMSS-BIENESTAR)',
+  },
+  comentario_30: {
+    seccionId: 'apoyos_poblacion_atendida',
+    pregunta: 'Comentario de la pregunta 30',
+    valor: 'De acuerdo con la MIR, el presupuesto es de 6439.35 millones de pesos',
+  },
+  comentario_31: {
+    seccionId: 'apoyos_poblacion_atendida',
+    pregunta: 'Comentario de la pregunta 31',
+    valor: 'Queda duda si es lo referente a la pregunta.\nServicios de Salud del Instituto Mexicano del Seguro Social para el Bienestar (IMSS-BIENESTAR): Director General, Alejandro Antonio Calderón Alipi',
+  },
+};
+
 export default function App() {
   const [step, setStep] = useState<AppStep>('landing');
   const [currentSectionIndex, setCurrentSectionIndex] = useState<number>(0);
@@ -55,6 +107,7 @@ export default function App() {
   });
 
   const [respuestas, setRespuestas] = useState<Record<string, RespuestaItem>>({});
+  const [claveProgramaBloqueada, setClaveProgramaBloqueada] = useState(false);
   const [archivos, setArchivos] = useState<ArchivoAdjunto[]>([]);
   const [hasSavedData, setHasSavedData] = useState<boolean>(false);
 
@@ -149,7 +202,43 @@ export default function App() {
         }
 
         if (savedResp && Object.keys(savedResp).length > 0) {
-          setRespuestas(savedResp);
+          const respuestasGuardadas = { ...savedResp };
+          if (respuestasGuardadas['10.1'] && !respuestasGuardadas['11']) {
+            respuestasGuardadas['11'] = {
+              ...respuestasGuardadas['10.1'],
+              preguntaId: '11',
+              pregunta: '11. Durante año reportado, ¿qué otras dependencias participaron como responsables en la operación del programa?',
+            };
+          }
+          delete respuestasGuardadas['10.1'];
+          setClaveProgramaBloqueada(Boolean(respuestasGuardadas['clave_programa']?.valor));
+          if (respuestasGuardadas['clave_programa']?.valor === 'S313') {
+            if (respuestasGuardadas['7']?.valor === S313_RESPUESTA_PREGUNTA_7_ANTERIOR) {
+              const respuestaPregunta7Limpia = {
+                ...respuestasGuardadas['7'],
+                valor: '',
+                fechaActualizacion: new Date().toISOString(),
+                estado: 'guardado' as const,
+              };
+              respuestasGuardadas['7'] = respuestaPregunta7Limpia;
+              void ApiService.saveRespuesta(respuestaPregunta7Limpia);
+            }
+            Object.entries(S313_RESPUESTAS_ADICIONALES).forEach(([preguntaId, respuesta]) => {
+              if (!respuestasGuardadas[preguntaId]?.valor) {
+                const respuestaPrecargada: RespuestaItem = {
+                  preguntaId,
+                  seccionId: respuesta.seccionId,
+                  pregunta: respuesta.pregunta,
+                  valor: respuesta.valor,
+                  fechaActualizacion: new Date().toISOString(),
+                  estado: 'guardado',
+                };
+                respuestasGuardadas[preguntaId] = respuestaPrecargada;
+                void ApiService.saveRespuesta(respuestaPrecargada);
+              }
+            });
+          }
+          setRespuestas(respuestasGuardadas);
           setHasSavedData(true);
 
           // Sincronizar datos de capturista con las preguntas 1 a 5 si existen
@@ -300,6 +389,54 @@ export default function App() {
       const queue = await getSyncQueue();
       setEstadoConexion((prev) => ({ ...prev, elementosPendientes: queue.length }));
     }, 400);
+  };
+
+  const handleClaveProgramaChange = (clave: string) => {
+    const claveActual = respuestas['clave_programa']?.valor;
+    setClaveProgramaBloqueada(Boolean(clave));
+    handleRespuestaChange('clave_programa', 'datos_generales', 'Clave del programa', clave);
+
+    if (clave === 'S313') {
+      if (respuestas['7']?.valor === S313_RESPUESTA_PREGUNTA_7_ANTERIOR) {
+        handleRespuestaChange('7', 'datos_generales', '7. Cargo de la persona responsable del programa durante año reportado.', '');
+      }
+      if (!respuestas['10']?.valor || ['Sí', 'No'].includes(respuestas['10'].valor)) {
+        handleRespuestaChange(
+          '10',
+          'datos_generales',
+          '10. Durante año reportado, ¿qué otras dependencias participaron como responsables en la operación del programa?',
+          S313_RESPUESTA_PREGUNTA_10
+        );
+      }
+      if (!respuestas['11']?.valor && !respuestas['10.1']?.valor) {
+        handleRespuestaChange(
+          '11',
+          'datos_generales',
+          '11. Durante año reportado, ¿qué otras dependencias participaron como responsables en la operación del programa?',
+          S313_RESPUESTA_PREGUNTA_11
+        );
+      }
+      Object.entries(S313_RESPUESTAS_ADICIONALES).forEach(([preguntaId, respuesta]) => {
+        if (!respuestas[preguntaId]?.valor) {
+          handleRespuestaChange(preguntaId, respuesta.seccionId, respuesta.pregunta, respuesta.valor);
+        }
+      });
+    } else if (claveActual === 'S313') {
+      if (respuestas['7']?.valor === S313_RESPUESTA_PREGUNTA_7_ANTERIOR) {
+        handleRespuestaChange('7', 'datos_generales', '7. Cargo de la persona responsable del programa durante año reportado.', '');
+      }
+      if (respuestas['10']?.valor === S313_RESPUESTA_PREGUNTA_10) {
+        handleRespuestaChange('10', 'datos_generales', 'Pregunta 10', '');
+      }
+      if (respuestas['11']?.valor === S313_RESPUESTA_PREGUNTA_11) {
+        handleRespuestaChange('11', 'datos_generales', 'Pregunta 11', '');
+      }
+      Object.entries(S313_RESPUESTAS_ADICIONALES).forEach(([preguntaId, respuesta]) => {
+        if (respuestas[preguntaId]?.valor === respuesta.valor) {
+          handleRespuestaChange(preguntaId, respuesta.seccionId, respuesta.pregunta, '');
+        }
+      });
+    }
   };
 
   // 4. Carga de archivo
@@ -478,6 +615,7 @@ export default function App() {
     if (window.confirm('¿Está seguro de iniciar una nueva captura? Se limpiará la memoria local para un nuevo registro.')) {
       await clearAllLocalData();
       setRespuestas({});
+      setClaveProgramaBloqueada(false);
       setArchivos([]);
       setCurrentSectionIndex(0);
       setMaxSectionReached(0);
@@ -585,8 +723,12 @@ export default function App() {
             key={seccionActual.id}
             seccion={seccionActual}
             respuestas={respuestas}
+            clavePrograma={String(respuestas['clave_programa']?.valor ?? '')}
+            claveBloqueada={claveProgramaBloqueada}
             isFirstSection={currentSectionIndex === 0}
             isLastQuestionSection={currentSectionIndex === SECCIONES_CUESTIONARIO.length - 1}
+            onToggleClaveBloqueada={() => setClaveProgramaBloqueada((bloqueada) => !bloqueada)}
+            onClaveProgramaChange={handleClaveProgramaChange}
             onRespuestaChange={handleRespuestaChange}
             onNext={handleNextSection}
             onPrev={handlePrevSection}

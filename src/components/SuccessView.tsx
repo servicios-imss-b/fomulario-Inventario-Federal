@@ -64,6 +64,7 @@ export const SuccessView: React.FC<SuccessViewProps> = ({
     dateStyle: 'long',
     timeStyle: 'medium',
   });
+  const totalRespuestas = Object.keys(respuestas).filter((preguntaId) => !preguntaId.startsWith('comentario_')).length;
 
   return (
     <div className="min-h-[calc(100vh-6rem)] py-8 px-4 sm:px-6 max-w-3xl mx-auto flex items-center justify-center">
@@ -120,7 +121,7 @@ export const SuccessView: React.FC<SuccessViewProps> = ({
               <FileCheck2 className="w-4 h-4" /> Resumen del Instrumento
             </h4>
             <div className="space-y-1 text-stone-200">
-              <p><strong className="text-stone-400">Preguntas respondidas:</strong> {Object.keys(respuestas).length} de 32</p>
+              <p><strong className="text-stone-400">Preguntas respondidas:</strong> {totalRespuestas} de 32</p>
               <p><strong className="text-stone-400">Archivos adjuntos:</strong> {archivos.length}</p>
               <p><strong className="text-stone-400">Estado de sincronización:</strong> Certificado</p>
               <p><strong className="text-stone-400">Ciclo operativo:</strong> 2024 y 2025</p>

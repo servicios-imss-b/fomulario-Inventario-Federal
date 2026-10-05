@@ -35,7 +35,7 @@ class FormularioRegistro(models.Model):
 class Respuesta(models.Model):
     """
     Respuesta individual a una pregunta oficial del instrumento INEGI.
-    Cada respuesta abierta está limitada a 300 caracteres según la norma técnica.
+    Las respuestas abiertas admiten 300 caracteres, excepto las preguntas 10, 14 y 15 y el comentario de la 7, que admiten 500.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     formulario = models.ForeignKey(
@@ -50,8 +50,8 @@ class Respuesta(models.Model):
     pregunta = models.CharField(max_length=500)
     
     # Contenido de la respuesta (texto, JSON, número o selección)
-    # Límite técnico de 300 caracteres aplicado estrictamente
-    respuesta = models.TextField(validators=[MaxLengthValidator(300)])
+    # El límite de cada pregunta se valida en el serializador.
+    respuesta = models.TextField(validators=[MaxLengthValidator(500)])
     fuente = models.CharField(max_length=300, blank=True, null=True, validators=[MaxLengthValidator(300)])
     
     fecha_actualizacion = models.DateTimeField(auto_now=True)

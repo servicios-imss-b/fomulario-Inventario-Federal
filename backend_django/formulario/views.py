@@ -59,9 +59,10 @@ class RespuestaListCreateView(APIView):
 
         # Validación backend: máximo 300 caracteres
         respuesta_val = data.get('respuesta')
-        if isinstance(respuesta_val, str) and len(respuesta_val) > 300:
+        max_caracteres = 500 if pregunta_id == '10' else 300
+        if isinstance(respuesta_val, str) and len(respuesta_val) > max_caracteres:
             return Response(
-                {"error": "La respuesta excede el límite máximo de 300 caracteres establecido por la norma."},
+            {"error": f"La respuesta excede el límite máximo de {max_caracteres} caracteres establecido por la norma."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -142,8 +143,9 @@ class SincronizacionBatchView(APIView):
             if tipo == 'respuesta':
                 p_id = payload.get('preguntaId') or payload.get('pregunta_id')
                 r_val = payload.get('valor') or payload.get('respuesta', '')
-                if isinstance(r_val, str) and len(r_val) > 300:
-                    r_val = r_val[:300]
+                max_caracteres = 500 if p_id == '10' else 300
+                if isinstance(r_val, str) and len(r_val) > max_caracteres:
+                    r_val = r_val[:max_caracteres]
                 
                 Respuesta.objects.update_or_create(
                     pregunta_id=p_id,

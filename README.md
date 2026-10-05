@@ -108,9 +108,13 @@ python manage.py runserver 8000
 ```
 
 ### 3. Configuración en Supabase
-1. Ejecutar las sentencias de `supabase_schema.sql` en el SQL Editor de tu proyecto en Supabase.
-2. Configurar las variables en `.env`:
+1. Ejecutar `supabase_schema.sql` en el SQL Editor de tu proyecto Supabase.
+2. Ejecutar `supabase_pages_rpc.sql` para crear las funciones de verificación y registro atómico. RLS queda habilitado y la app solo expone la función de envío; no se usa la clave `service_role` en el navegador.
+3. Para desarrollo local, configurar `.env` con:
    ```bash
-   SUPABASE_URL="https://tu-proyecto.supabase.co"
-   SUPABASE_SERVICE_ROLE_KEY="tu-clave-service-role"
+       VITE_SUPABASE_URL="https://tu-proyecto.supabase.co"
+       VITE_SUPABASE_ANON_KEY="tu-anon-public-key"
    ```
+4. Para GitHub Pages, crear las variables `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` en **Settings > Secrets and variables > Actions > Variables** del repositorio. El workflow las inyecta al compilar. No agregar `service_role` al frontend ni a las variables `VITE_`.
+
+El envío a Supabase ocurre al finalizar el formulario. Los adjuntos se guardan localmente y la base recibe sus metadatos; el binario requiere configurar almacenamiento por separado.

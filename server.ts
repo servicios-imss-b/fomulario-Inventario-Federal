@@ -92,10 +92,10 @@ app.post('/api/respuestas/', (req: Request, res: Response) => {
       return res.status(400).json({ error: 'pregunta_id es requerido' });
     }
 
-    // Backend validation: strict 300 char limit on string answers
-    if (typeof respuesta === 'string' && respuesta.length > 300) {
+    const maxCaracteres = ['10', '14', '15', 'comentario_7'].includes(pregunta_id) ? 500 : 300;
+    if (typeof respuesta === 'string' && respuesta.length > maxCaracteres) {
       return res.status(400).json({
-        error: 'La respuesta excede el límite máximo de 300 caracteres establecido por la norma técnica.',
+        error: `La respuesta excede el límite máximo de ${maxCaracteres} caracteres.`,
         longitudActual: respuesta.length,
       });
     }
@@ -129,10 +129,11 @@ app.post('/api/respuestas/', (req: Request, res: Response) => {
 app.put('/api/respuestas/:id/', (req: Request, res: Response) => {
   const { id } = req.params;
   const { respuesta, fuente } = req.body;
+  const maxCaracteres = ['10', '14', '15', 'comentario_7'].includes(id) ? 500 : 300;
 
-  if (typeof respuesta === 'string' && respuesta.length > 300) {
+  if (typeof respuesta === 'string' && respuesta.length > maxCaracteres) {
     return res.status(400).json({
-      error: 'La respuesta excede el límite máximo de 300 caracteres.',
+      error: `La respuesta excede el límite máximo de ${maxCaracteres} caracteres.`,
     });
   }
 
@@ -236,8 +237,9 @@ app.post('/api/sincronizar/', (req: Request, res: Response) => {
     for (const item of items) {
       if (item.tipo === 'respuesta' && item.payload) {
         const p = item.payload;
-        if (typeof p.valor === 'string' && p.valor.length > 300) {
-          p.valor = p.valor.substring(0, 300);
+        const maxCaracteres = ['10', '14', '15', 'comentario_7'].includes(p.preguntaId) ? 500 : 300;
+        if (typeof p.valor === 'string' && p.valor.length > maxCaracteres) {
+          p.valor = p.valor.substring(0, maxCaracteres);
         }
         memoryDb.respuestas.set(p.preguntaId, {
           id: p.preguntaId,
