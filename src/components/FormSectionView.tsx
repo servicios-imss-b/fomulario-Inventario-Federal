@@ -25,11 +25,13 @@ interface FormSectionViewProps {
   seccion: SeccionConfig;
   respuestas: Record<string, RespuestaItem>;
   clavePrograma: string;
+  anioPrograma: string;
   claveBloqueada: boolean;
   isFirstSection: boolean;
   isLastQuestionSection: boolean;
   onToggleClaveBloqueada: () => void;
   onClaveProgramaChange: (valor: string) => void;
+  onAnioProgramaChange: (valor: string) => void;
   onRespuestaChange: (preguntaId: string, seccionId: string, pregunta: string, valor: any, fuente?: string) => void;
   onNext: () => void;
   onPrev: () => void;
@@ -39,11 +41,13 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
   seccion,
   respuestas,
   clavePrograma,
+  anioPrograma,
   claveBloqueada,
   isFirstSection,
   isLastQuestionSection,
   onToggleClaveBloqueada,
   onClaveProgramaChange,
+  onAnioProgramaChange,
   onRespuestaChange,
   onNext,
   onPrev,
@@ -325,18 +329,40 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
               </button>
             )}
           </div>
-          <select
-            id="clave-programa"
-            value={clavePrograma}
-            disabled={claveBloqueada && Boolean(clavePrograma)}
-            onChange={(event) => onClaveProgramaChange(event.target.value)}
-            className="w-full rounded-lg border border-[#A57F2C]/50 bg-[#002F2A] px-3 py-2.5 text-sm text-white outline-none transition focus:border-[#A57F2C] focus:ring-2 focus:ring-[#A57F2C]/30 disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            <option value="">Selecciona una clave</option>
-            {['S313', 'E001', 'U013', 'S200', 'U313', 'E003', 'E004', 'E006'].map((clave) => (
-              <option key={clave} value={clave}>{clave}</option>
-            ))}
-          </select>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label htmlFor="clave-programa" className="mb-1.5 block text-xs font-medium text-stone-300">
+                Clave del programa
+              </label>
+              <select
+                id="clave-programa"
+                value={clavePrograma}
+                disabled={claveBloqueada && Boolean(clavePrograma)}
+                onChange={(event) => onClaveProgramaChange(event.target.value)}
+                className="w-full rounded-lg border border-[#A57F2C]/50 bg-[#002F2A] px-3 py-2.5 text-sm text-white outline-none transition focus:border-[#A57F2C] focus:ring-2 focus:ring-[#A57F2C]/30 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                <option value="">Selecciona una clave</option>
+                {['S313', 'E001', 'U013', 'S200', 'U313', 'E003', 'E004', 'E006'].map((clave) => (
+                  <option key={clave} value={clave}>{clave}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="anio-programa" className="mb-1.5 block text-xs font-medium text-stone-300">
+                Año del programa
+              </label>
+              <select
+                id="anio-programa"
+                value={anioPrograma}
+                onChange={(event) => onAnioProgramaChange(event.target.value)}
+                className="w-full rounded-lg border border-[#A57F2C]/50 bg-[#002F2A] px-3 py-2.5 text-sm text-white outline-none transition focus:border-[#A57F2C] focus:ring-2 focus:ring-[#A57F2C]/30"
+              >
+                <option value="">Selecciona un año</option>
+                <option value="2024">2024</option>
+                <option value="2025">2025</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         {/* Encabezado de la Sección - Card Transparente y Limpia */}

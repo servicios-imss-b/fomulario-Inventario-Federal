@@ -724,11 +724,15 @@ export default function App() {
             seccion={seccionActual}
             respuestas={respuestas}
             clavePrograma={String(respuestas['clave_programa']?.valor ?? '')}
+            anioPrograma={String(respuestas['anio_captura']?.valor ?? '')}
             claveBloqueada={claveProgramaBloqueada}
             isFirstSection={currentSectionIndex === 0}
             isLastQuestionSection={currentSectionIndex === SECCIONES_CUESTIONARIO.length - 1}
             onToggleClaveBloqueada={() => setClaveProgramaBloqueada((bloqueada) => !bloqueada)}
             onClaveProgramaChange={handleClaveProgramaChange}
+            onAnioProgramaChange={(valor) =>
+              handleRespuestaChange('anio_captura', 'datos_generales', 'Año del programa', valor)
+            }
             onRespuestaChange={handleRespuestaChange}
             onNext={handleNextSection}
             onPrev={handlePrevSection}
