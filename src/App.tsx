@@ -37,6 +37,7 @@ import {
 
 import { SectionBackground } from './components/SectionBackground';
 import { ASSET_IMAGES } from './assets/images';
+import { AdminDataView } from './components/admin/AdminDataView';
 
 export type AppStep = 'landing' | 'section' | 'archivos' | 'review' | 'success';
 
@@ -108,6 +109,7 @@ export default function App() {
 
   const [respuestas, setRespuestas] = useState<Record<string, RespuestaItem>>({});
   const [claveProgramaBloqueada, setClaveProgramaBloqueada] = useState(false);
+  const [isAdminView, setIsAdminView] = useState(false);
   const [archivos, setArchivos] = useState<ArchivoAdjunto[]>([]);
   const [hasSavedData, setHasSavedData] = useState<boolean>(false);
 
@@ -666,12 +668,14 @@ export default function App() {
   return (
     <div className="relative min-h-screen bg-[#020c0b] text-stone-100 flex flex-col font-sans selection:bg-[#A57F2C]/40 selection:text-white">
       {/* CAPA DE FONDO REAL: Con manejo de carga, error y capa oscura semitransparente */}
-      <SectionBackground
-        imageUrl={currentBackground}
-        alt={bgAlt}
-        mode={bgMode}
-        overlayOpacity={bgMode === 'instructions' ? 0.14 : 0.80}
-      />
+      {!isAdminView && (
+        <SectionBackground
+          imageUrl={currentBackground}
+          alt={bgAlt}
+          mode={bgMode}
+          overlayOpacity={bgMode === 'instructions' ? 0.14 : 0.80}
+        />
+      )}
 
       {/* Header Institucional */}
       <Header
@@ -680,11 +684,12 @@ export default function App() {
         seccionActualTitulo={step === 'section' ? seccionActual?.titulo : undefined}
         onManualSync={handleManualSync}
         onOpenInfo={() => setIsArchitectureModalOpen(true)}
-        isLanding={step === 'landing'}
+        onAdminAccess={() => setIsAdminView(true)}
+        isLanding={step === 'landing' && !isAdminView}
       />
 
       {/* Indicador de Progreso permanente en las 6 secciones */}
-      {step !== 'landing' && step !== 'success' && (
+      {!isAdminView && step !== 'landing' && step !== 'success' && (
         <ProgressBar
           seccionActualIndex={
             step === 'archivos'
@@ -709,6 +714,10 @@ export default function App() {
 
       {/* Contenido Principal con Card Transparente sobre Fondo Opacado */}
       <main className="relative z-10 flex-1 w-full max-w-7xl mx-auto">
+        {isAdminView ? (
+          <AdminDataView onClose={() => setIsAdminView(false)} />
+        ) : (
+          <>
         {step === 'landing' && (
           <LandingView
             hasSavedData={hasSavedData}
@@ -782,6 +791,8 @@ export default function App() {
             archivos={archivos}
             onRestart={handleRestart}
           />
+        )}
+          </>
         )}
       </main>
 

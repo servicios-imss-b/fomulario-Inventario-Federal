@@ -118,3 +118,5 @@ python manage.py runserver 8000
 4. Para GitHub Pages, crear las variables `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` en **Settings > Secrets and variables > Actions > Variables** del repositorio. El workflow las inyecta al compilar. No agregar `service_role` al frontend ni a las variables `VITE_`.
 
 El envío a Supabase ocurre al finalizar el formulario. Los adjuntos se guardan localmente y la base recibe sus metadatos; el binario requiere configurar almacenamiento por separado.
+
+Para abrir el visor administrativo, toca cinco veces seguidas el logo IMSS-BIENESTAR. Inicia sesión con una cuenta creada manualmente en Supabase Auth cuyo `app_metadata.role` sea `admin`. Desactiva el registro público de usuarios; el visor solo permite leer registros a ese rol mediante RLS.

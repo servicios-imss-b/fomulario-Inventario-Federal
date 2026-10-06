@@ -145,3 +145,27 @@ $$;
 
 revoke all on function public.registrar_formulario(jsonb) from public;
 grant execute on function public.registrar_formulario(jsonb) to anon, authenticated;
+
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+set search_path = ''
+as $$
+  select coalesce((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin', false);
+$$;
+
+revoke all on function public.is_admin() from public, anon;
+grant execute on function public.is_admin() to authenticated;
+
+grant select on public.formularios, public.respuestas to authenticated;
+
+drop policy if exists admin_read_formularios on public.formularios;
+create policy admin_read_formularios
+  on public.formularios for select to authenticated
+  using ((select public.is_admin()));
+
+drop policy if exists admin_read_respuestas on public.respuestas;
+create policy admin_read_respuestas
+  on public.respuestas for select to authenticated
+  using ((select public.is_admin()));

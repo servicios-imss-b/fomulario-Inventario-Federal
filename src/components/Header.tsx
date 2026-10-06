@@ -9,6 +9,7 @@ interface HeaderProps {
   onManualSync?: () => void;
   onOpenInfo?: () => void;
   isLanding?: boolean;
+  onAdminAccess?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -18,8 +19,33 @@ export const Header: React.FC<HeaderProps> = ({
   onManualSync,
   onOpenInfo,
   isLanding = false,
+  onAdminAccess,
 }) => {
   const [logoNoDisponible, setLogoNoDisponible] = React.useState(false);
+  const logoTapCountRef = React.useRef(0);
+  const logoTapTimeoutRef = React.useRef<number | null>(null);
+
+  const handleLogoTap = () => {
+    if (logoTapTimeoutRef.current !== null) {
+      window.clearTimeout(logoTapTimeoutRef.current);
+    }
+    logoTapCountRef.current += 1;
+
+    if (logoTapCountRef.current >= 5) {
+      logoTapCountRef.current = 0;
+      onAdminAccess?.();
+      return;
+    }
+
+    logoTapTimeoutRef.current = window.setTimeout(() => {
+      logoTapCountRef.current = 0;
+      logoTapTimeoutRef.current = null;
+    }, 2200);
+  };
+
+  React.useEffect(() => () => {
+    if (logoTapTimeoutRef.current !== null) window.clearTimeout(logoTapTimeoutRef.current);
+  }, []);
 
   return (
     <header
@@ -33,7 +59,13 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex h-[68px] items-center justify-between gap-3">
           {/* Logo & Identidad Institucional */}
           <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-            {!logoNoDisponible ? (
+            <button
+              type="button"
+              onClick={handleLogoTap}
+              aria-label="Logo de IMSS Bienestar"
+              className="grid shrink-0 place-items-center rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A57F2C]"
+            >
+              {!logoNoDisponible ? (
               <img
                 src="https://imssbienestar.gob.mx/assets/img/imb_b.svg"
                 alt="IMSS Bienestar"
@@ -45,6 +77,7 @@ export const Header: React.FC<HeaderProps> = ({
                 IMSS<br />BIENESTAR
               </span>
             )}
+            </button>
             <div className="min-w-0 leading-tight">
               <h1 className="truncate text-xs font-semibold text-white sm:text-sm">
                 Cuestionario de equipamiento
