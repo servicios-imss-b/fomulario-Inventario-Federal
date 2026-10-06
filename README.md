@@ -120,3 +120,7 @@ python manage.py runserver 8000
 El envío a Supabase ocurre al finalizar el formulario. Los adjuntos se guardan localmente y la base recibe sus metadatos; el binario requiere configurar almacenamiento por separado.
 
 Para abrir el visor administrativo, toca cinco veces seguidas el logo IMSS-BIENESTAR. Inicia sesión con una cuenta creada manualmente en Supabase Auth cuyo `app_metadata.role` sea `admin`. Desactiva el registro público de usuarios; el visor solo permite leer registros a ese rol mediante RLS.
+
+### GitHub Pages desde la rama
+
+El sitio publicado desde `main` usa los archivos generados en `docs/`. Ejecuta `npm run build` antes de subir cambios de frontend y conserva `docs/` versionado. En **Settings > Pages**, selecciona **Deploy from a branch**, rama `main` y carpeta `/docs`.
