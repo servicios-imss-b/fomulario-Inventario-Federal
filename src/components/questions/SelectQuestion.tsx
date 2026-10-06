@@ -55,7 +55,7 @@ export const SelectQuestion: React.FC<SelectQuestionProps> = ({
           id={`preg_${pregunta.id}`}
           value={valor || ''}
           onChange={(e) => onChange(e.target.value, fuente)}
-          className={`w-full appearance-none px-3.5 py-2.5 rounded-lg glass-input text-sm text-stone-100 cursor-pointer pr-10 ${
+          className={`animated-select animated-select--custom-icon w-full appearance-none px-3.5 py-2.5 rounded-lg glass-input text-sm text-stone-100 cursor-pointer pr-10 ${
             error ? 'border-rose-500 focus:border-rose-400' : ''
           }`}
         >

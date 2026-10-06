@@ -64,7 +64,7 @@ export const GridQuantificationQuestion: React.FC<GridQuantificationProps> = ({
           <select
             value={current.entidad || ''}
             onChange={(e) => updateField('entidad', e.target.value)}
-            className="w-full px-3 py-2 rounded-lg glass-input text-xs sm:text-sm text-stone-100"
+            className="animated-select w-full px-3 py-2 rounded-lg glass-input text-xs sm:text-sm text-stone-100"
           >
             <option value="" disabled className="bg-[#002F2A]">
               Seleccione la Entidad o Cobertura ▾

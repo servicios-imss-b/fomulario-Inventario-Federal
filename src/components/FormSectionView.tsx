@@ -339,7 +339,7 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
                 value={clavePrograma}
                 disabled={claveBloqueada && Boolean(clavePrograma)}
                 onChange={(event) => onClaveProgramaChange(event.target.value)}
-                className="w-full rounded-lg border border-[#A57F2C]/50 bg-[#002F2A] px-3 py-2.5 text-sm text-white outline-none transition focus:border-[#A57F2C] focus:ring-2 focus:ring-[#A57F2C]/30 disabled:cursor-not-allowed disabled:opacity-70"
+                className="animated-select w-full rounded-lg border border-[#A57F2C]/50 bg-[#002F2A] px-3 py-2.5 text-sm text-white outline-none transition focus:border-[#A57F2C] focus:ring-2 focus:ring-[#A57F2C]/30 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 <option value="">Selecciona una clave</option>
                 {['S313', 'E001', 'U013', 'S200', 'U313', 'E003', 'E004', 'E006'].map((clave) => (
@@ -355,7 +355,7 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
                 id="anio-programa"
                 value={anioPrograma}
                 onChange={(event) => onAnioProgramaChange(event.target.value)}
-                className="w-full rounded-lg border border-[#A57F2C]/50 bg-[#002F2A] px-3 py-2.5 text-sm text-white outline-none transition focus:border-[#A57F2C] focus:ring-2 focus:ring-[#A57F2C]/30"
+                className="animated-select w-full rounded-lg border border-[#A57F2C]/50 bg-[#002F2A] px-3 py-2.5 text-sm text-white outline-none transition focus:border-[#A57F2C] focus:ring-2 focus:ring-[#A57F2C]/30"
               >
                 <option value="">Selecciona un año</option>
                 <option value="2024">2024</option>
