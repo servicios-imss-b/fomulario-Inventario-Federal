@@ -13,7 +13,7 @@ export const SectionBackground: React.FC<SectionBackgroundProps> = ({
   imageUrl,
   alt,
   mode = 'form',
-  overlayOpacity = 0.82,
+  overlayOpacity = 0.08,
 }) => {
   const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
 
@@ -45,7 +45,7 @@ export const SectionBackground: React.FC<SectionBackgroundProps> = ({
           src={imageUrl}
           alt={alt}
           className={`w-full h-full object-cover filter contrast-[1.08] animate-image-fade ${
-            mode === 'instructions' ? 'brightness-[0.95]' : 'brightness-[0.58]'
+            mode === 'instructions' ? 'brightness-[0.98]' : 'brightness-[0.88]'
           }`}
           style={{
             minHeight: '100vh',
@@ -87,10 +87,8 @@ export const SectionBackground: React.FC<SectionBackgroundProps> = ({
         style={{
           background:
             mode === 'instructions'
-              ? `linear-gradient(rgba(20, 23, 23, ${overlayOpacity}), rgba(20, 23, 23, ${Math.min(0.96, overlayOpacity + 0.06)}))`
-              : 'rgba(14, 25, 23, 0.12)',
-          backgroundPosition: 'center',
-          backgroundSize: 'cover',
+              ? `linear-gradient(rgba(20, 23, 23, ${overlayOpacity}), rgba(20, 23, 23, ${Math.min(0.18, overlayOpacity + 0.04)}))`
+              : `rgba(14, 25, 23, ${overlayOpacity})`,
         }}
       />
     </div>

@@ -17,14 +17,14 @@ export const RadioQuestion: React.FC<RadioQuestionProps> = ({
   return (
     <div className="space-y-2.5">
       <div>
-        <label className="block text-sm sm:text-base font-medium text-stone-100">
+        <label className="block text-sm sm:text-base font-medium text-black">
           {pregunta.pregunta}
           {pregunta.requerida && (
             <span className="text-rose-400 ml-1 font-bold" title="Campo obligatorio">*</span>
           )}
         </label>
         {pregunta.instruccion && (
-          <p className="text-xs text-stone-300 italic bg-black/20 p-2 rounded border-l-2 border-[#A57F2C] mt-1.5">
+          <p className="text-xs text-black/90 italic border-l-2 border-[#A57F2C] pl-2 mt-1.5">
             {pregunta.instruccion}
           </p>
         )}
@@ -40,7 +40,7 @@ export const RadioQuestion: React.FC<RadioQuestionProps> = ({
               className={`flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-all text-xs sm:text-sm border ${
                 isSelected
                   ? 'bg-[#611232]/70 border-[#A57F2C] text-stone-100 shadow-md ring-1 ring-[#A57F2C]/50'
-                  : 'bg-[#002F2A]/40 border-[#A57F2C]/20 text-stone-300 hover:bg-[#002F2A]/70'
+                  : 'bg-[#002F2A]/40 border-[#A57F2C]/20 text-black hover:bg-[#002F2A]/70'
               }`}
             >
               <div

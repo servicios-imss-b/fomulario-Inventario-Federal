@@ -8,8 +8,7 @@ import {
   CheckCircle,
   Clock,
   AlertTriangle,
-  ArrowLeft,
-  ArrowRight,
+  Send,
   File,
 } from 'lucide-react';
 
@@ -18,8 +17,7 @@ interface FileUploadSectionProps {
   isOnline: boolean;
   onUpload: (archivo: ArchivoAdjunto) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
-  onNext: () => void;
-  onPrev: () => void;
+  onSubmit: () => void;
 }
 
 const MAX_SIZE_BYTES = 15 * 1024 * 1024; // 15 MB
@@ -30,8 +28,7 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
   isOnline,
   onUpload,
   onDelete,
-  onNext,
-  onPrev,
+  onSubmit,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -274,24 +271,14 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
         </div>
       </div>
 
-      {/* Navegación inferior */}
-      <div className="mt-8 pt-6 border-t border-[#A57F2C]/20 flex flex-col-reverse sm:flex-row items-center justify-between gap-4">
+      <div className="mt-8 flex justify-end border-t border-[#A57F2C]/20 pt-6">
         <button
           type="button"
-          onClick={onPrev}
-          className="w-full sm:w-auto px-6 py-3 rounded-xl text-xs sm:text-sm font-semibold text-stone-300 hover:text-white bg-[#002F2A]/60 hover:bg-[#002F2A] border border-[#A57F2C]/30 flex items-center justify-center gap-2 transition cursor-pointer"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>← ANTERIOR</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={onNext}
+          onClick={onSubmit}
           className="w-full sm:w-auto px-8 py-3.5 rounded-xl text-xs sm:text-sm font-bold text-[#002F2A] bg-[#A57F2C] hover:bg-[#c4993a] border border-[#A57F2C] shadow-lg flex items-center justify-center gap-2 transition hover:scale-[1.02] cursor-pointer"
         >
-          <span>CONTINUAR A REVISIÓN →</span>
-          <ArrowRight className="w-4 h-4" />
+          <span>ENVIAR FORMULARIO</span>
+          <Send className="w-4 h-4" />
         </button>
       </div>
     </div>

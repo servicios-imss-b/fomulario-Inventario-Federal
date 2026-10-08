@@ -46,19 +46,19 @@ export const GridQuantificationQuestion: React.FC<GridQuantificationProps> = ({
 
   return (
     <div className="space-y-3 p-4 rounded-xl bg-[#002F2A]/45 backdrop-blur-md border border-[#A57F2C]/30 shadow-inner">
-      <div className="flex items-center gap-2 text-stone-100 font-semibold text-sm sm:text-base border-b border-[#A57F2C]/20 pb-2">
+      <div className="flex items-center gap-2 text-black font-semibold text-sm sm:text-base border-b border-[#A57F2C]/20 pb-2">
         <Building2 className="w-5 h-5 text-[#A57F2C]" />
         <span>{pregunta.pregunta}</span>
       </div>
 
       {pregunta.instruccion && (
-        <p className="text-xs text-stone-300 italic">{pregunta.instruccion}</p>
+        <p className="text-xs text-black/90 italic">{pregunta.instruccion}</p>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
         {/* Entidad / Ámbito geográfico */}
         <div className="space-y-1.5">
-          <label className="text-xs font-medium text-stone-200">
+          <label className="text-xs font-medium text-black">
             Entidad Federativa o Ámbito Territorial:
           </label>
           <select
@@ -79,7 +79,7 @@ export const GridQuantificationQuestion: React.FC<GridQuantificationProps> = ({
 
         {/* Total General */}
         <div className="space-y-1.5">
-          <label className="text-xs font-medium text-stone-200 flex items-center justify-between">
+          <label className="text-xs font-medium text-black flex items-center justify-between">
             <span>Población Total Cuantificada:</span>
             <Users className="w-3.5 h-3.5 text-[#A57F2C]" />
           </label>
@@ -102,7 +102,7 @@ export const GridQuantificationQuestion: React.FC<GridQuantificationProps> = ({
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-xs text-stone-200">Mujeres atendidas:</label>
+              <label className="text-xs text-black">Mujeres atendidas:</label>
               <input
                 type="number"
                 min="0"
@@ -113,7 +113,7 @@ export const GridQuantificationQuestion: React.FC<GridQuantificationProps> = ({
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-stone-200">Hombres atendidos:</label>
+              <label className="text-xs text-black">Hombres atendidos:</label>
               <input
                 type="number"
                 min="0"

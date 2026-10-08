@@ -7,9 +7,8 @@ interface HeaderProps {
   estadoGuardado: 'guardando' | 'guardado' | 'pendiente' | 'error';
   seccionActualTitulo?: string;
   onManualSync?: () => void;
-  onOpenInfo?: () => void;
-  isLanding?: boolean;
   onAdminAccess?: () => void;
+  isLanding?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -17,9 +16,8 @@ export const Header: React.FC<HeaderProps> = ({
   estadoGuardado,
   seccionActualTitulo,
   onManualSync,
-  onOpenInfo,
-  isLanding = false,
   onAdminAccess,
+  isLanding = false,
 }) => {
   const [logoNoDisponible, setLogoNoDisponible] = React.useState(false);
   const logoTapCountRef = React.useRef(0);
@@ -49,11 +47,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header
-      className={`sticky top-0 z-40 w-full text-white ${
-        isLanding
-          ? 'border-b border-white/10 bg-black/20 shadow-none backdrop-blur-sm'
-          : 'border-b-2 border-[#a57f2c] bg-[#002f2a] shadow-md'
-      }`}
+      className="sticky top-0 z-40 w-full bg-transparent text-slate-900"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-[68px] items-center justify-between gap-3">
@@ -63,20 +57,20 @@ export const Header: React.FC<HeaderProps> = ({
               type="button"
               onClick={handleLogoTap}
               aria-label="Logo de IMSS Bienestar"
-              className="grid shrink-0 place-items-center rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A57F2C]"
+              className="grid shrink-0 place-items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A57F2C]"
             >
               {!logoNoDisponible ? (
-              <img
-                src="https://imssbienestar.gob.mx/assets/img/imb_b.svg"
-                alt="IMSS Bienestar"
-                className="h-[42px] w-auto shrink-0 object-contain"
-                onError={() => setLogoNoDisponible(true)}
-              />
-            ) : (
-              <span className="text-[10px] font-bold leading-tight text-white">
-                IMSS<br />BIENESTAR
-              </span>
-            )}
+                <img
+                  src="https://imssbienestar.gob.mx/assets/img/imb_b.svg"
+                  alt="IMSS Bienestar"
+                  className="h-[42px] w-auto shrink-0 object-contain drop-shadow-[0_1px_5px_rgba(0,0,0,0.9)]"
+                  onError={() => setLogoNoDisponible(true)}
+                />
+              ) : (
+                <span className="text-[10px] font-bold leading-tight text-white">
+                  IMSS<br />BIENESTAR
+                </span>
+              )}
             </button>
             <div className="min-w-0 leading-tight">
               <h1 className="truncate text-xs font-semibold text-white sm:text-sm">
@@ -155,17 +149,6 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             )}
 
-            {/* Botón Información / Arquitectura */}
-            {onOpenInfo && !isLanding && (
-              <button
-                onClick={onOpenInfo}
-                className="rounded-md border border-[#a57f2c]/70 p-1.5 text-xs font-medium text-[#f4ead0] transition hover:bg-white/10 sm:px-2.5 sm:py-1"
-                title="Detalles del instrumento y arquitectura"
-              >
-                <span className="hidden sm:inline">Arquitectura & PDF</span>
-                <span className="sm:hidden">ℹ</span>
-              </button>
-            )}
           </div>
         </div>
       </div>

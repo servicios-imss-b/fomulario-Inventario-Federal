@@ -19,7 +19,7 @@ export const DateQuestion: React.FC<DateQuestionProps> = ({
     <div className="space-y-2">
       <label
         htmlFor={`preg_${pregunta.id}`}
-        className="block text-sm sm:text-base font-medium text-stone-100"
+        className="block text-sm sm:text-base font-medium text-black"
       >
         {pregunta.pregunta}
         {pregunta.requerida && (
@@ -28,7 +28,7 @@ export const DateQuestion: React.FC<DateQuestionProps> = ({
       </label>
 
       {pregunta.instruccion && (
-        <p className="text-xs text-stone-300 italic bg-black/20 p-2 rounded border-l-2 border-[#A57F2C]">
+        <p className="text-xs text-black/90 italic border-l-2 border-[#A57F2C] pl-2">
           {pregunta.instruccion}
         </p>
       )}

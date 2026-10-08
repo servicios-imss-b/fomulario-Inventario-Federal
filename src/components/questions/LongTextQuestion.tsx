@@ -8,7 +8,6 @@ interface LongTextQuestionProps {
   fuente?: string;
   error?: string;
   readOnly?: boolean;
-  commentAction?: React.ReactNode;
   onChange: (valor: string, fuente?: string) => void;
 }
 
@@ -18,12 +17,10 @@ export const LongTextQuestion: React.FC<LongTextQuestionProps> = ({
   fuente = '',
   error,
   readOnly = false,
-  commentAction,
   onChange,
 }) => {
   const max = pregunta.maxCaracteres || 300;
   const charsUsed = (valor || '').length;
-  const isNearLimit = charsUsed >= max * 0.9;
   const isAtLimit = charsUsed >= max;
 
   const [mostrarFuente, setMostrarFuente] = React.useState(Boolean(fuente));
@@ -49,7 +46,7 @@ export const LongTextQuestion: React.FC<LongTextQuestionProps> = ({
       <div className="flex items-start justify-between gap-2">
         <label
           htmlFor={`preg_${pregunta.id}`}
-          className="text-sm sm:text-base font-medium text-stone-100 leading-snug"
+          className="text-sm sm:text-base font-medium text-black leading-snug"
         >
           {pregunta.pregunta}
           {pregunta.requerida && (
@@ -69,7 +66,7 @@ export const LongTextQuestion: React.FC<LongTextQuestionProps> = ({
       </div>
 
       {pregunta.instruccion && (
-        <p className="text-xs text-stone-300 italic bg-black/20 p-2 rounded border-l-2 border-[#A57F2C]">
+        <p className="text-xs text-black/90 italic border-l-2 border-[#A57F2C] pl-2">
           {pregunta.instruccion}
         </p>
       )}
@@ -87,19 +84,12 @@ export const LongTextQuestion: React.FC<LongTextQuestionProps> = ({
           placeholder={pregunta.placeholder || 'Ingrese la descripción detallada aquí (máx. 300 caracteres)...'}
           className={`w-full px-3.5 py-2.5 rounded-lg glass-input text-sm text-stone-100 placeholder:text-stone-400 resize-y min-h-[90px] ${error ? 'border-rose-500 focus:border-rose-400 focus:ring-rose-500/20' : ''} ${readOnly ? 'read-only:cursor-not-allowed read-only:bg-black/40 read-only:text-stone-300 read-only:border-stone-500/40' : ''}`}
         />
-        <div className={`${commentAction ? 'grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1' : 'flex justify-between'} mt-1 items-center px-1 text-[10px] sm:text-[11px]`}>
-          <span className="text-stone-400">
+        <div className="mt-1 flex items-center justify-between px-1 text-[10px] text-black sm:text-[11px]">
+          <span className="text-black">
             {error ? <span className="text-rose-400 font-medium">{error}</span> : `Máximo ${max} caracteres`}
           </span>
-          {commentAction && <div className="justify-self-center [&_button]:whitespace-nowrap [&_button]:px-1.5 [&_button]:py-1 [&_button]:text-[10px] sm:[&_button]:text-[11px]">{commentAction}</div>}
           <span
-            className={`font-mono font-medium ${commentAction ? 'text-right' : ''} ${
-              isAtLimit
-                ? 'text-rose-400 font-bold'
-                : isNearLimit
-                ? 'text-amber-300'
-                : 'text-[#A57F2C]'
-            }`}
+            className={`font-mono font-medium text-black ${isAtLimit ? 'font-bold' : ''}`}
           >
             {charsUsed} / {max}
           </span>
@@ -119,7 +109,7 @@ export const LongTextQuestion: React.FC<LongTextQuestionProps> = ({
             placeholder="Especifique documento, numeral, artículo, enlace o fecha..."
             className="w-full px-2.5 py-1.5 rounded glass-input text-xs text-stone-200"
           />
-          <div className="text-right text-[10px] text-stone-400">
+          <div className="px-1 text-right text-[10px] text-black">
             {(fuente || '').length} / {max}
           </div>
         </div>

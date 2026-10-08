@@ -3,19 +3,20 @@
  * Fondos temáticos de Equipamiento Médico, Unidades de Salud y Personal de Captura
  */
 
-import fondoSalud from '../../imagenes/Que-son-los-Presupuestos-en-Salud.jpg';
-import fondoCaptura from '../../imagenes/69fbbc3241cf5.webp';
+import fondoInicio from '../../imagenes/inicio.jpg';
+import fondoUsuario from '../../imagenes/usuario.jpg';
+import fondoFormulario from '../../imagenes/formulario.png';
 
 export const ASSET_IMAGES = {
-  // Formulario: fondo relacionado con equipo médico o unidades de salud
-  equipoMedico: fondoSalud,
-  unidadSalud: fondoSalud,
-  tecnologiaMedica: fondoSalud,
-
-  // Instrucciones y bienvenida: fondo relacionado con captura de información o personal de salud
-  personalSalud: fondoCaptura,
-  capturaInformacion: fondoCaptura,
-  documentacionMedica: fondoSalud,
+  inicio: fondoInicio,
+  usuario: fondoUsuario,
+  formulario: fondoFormulario,
+  equipoMedico: fondoFormulario,
+  unidadSalud: fondoFormulario,
+  tecnologiaMedica: fondoFormulario,
+  personalSalud: fondoUsuario,
+  capturaInformacion: fondoInicio,
+  documentacionMedica: fondoFormulario,
 };
 
 // Fallback en SVG Data URI para modo offline o error de red

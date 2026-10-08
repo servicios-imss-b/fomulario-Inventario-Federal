@@ -65,11 +65,20 @@
 }
 
 .glass-card-guinda {
-  background-color: rgba(0, 47, 42, 0.52);
+  background-color: rgba(105, 28, 50, 0.82);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border: 1px solid rgba(165, 127, 44, 0.32);
   box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.36);
+}
+
+.glass-form-surface {
+  background-color: rgba(0, 47, 42, 0.64);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(165, 127, 44, 0.35);
+  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.48);
+  color: #111827;
 }
 
 .glass-input {
@@ -435,15 +444,6 @@
     display: none;
   }
 
-  .animated-select selectedcontent {
-    transition: opacity 180ms steps(1, end);
-  }
-
-  .animated-select:open selectedcontent {
-    opacity: 0;
-    transition-timing-function: steps(1, start);
-  }
-
   .animated-select option {
     min-block-size: 2.4rem;
     padding: 0.55rem 0.7rem;
@@ -459,24 +459,6 @@
     color: #f7d77b;
   }
 
-  @supports (animation-timeline: view()) {
-    .animated-select option {
-      animation: select-option-focus both ease-in-out;
-      animation-timeline: view();
-    }
-
-    @keyframes select-option-focus {
-      0%, 100% {
-        opacity: 0.45;
-        filter: blur(2px);
-      }
-
-      45%, 55% {
-        opacity: 1;
-        filter: blur(0);
-      }
-    }
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

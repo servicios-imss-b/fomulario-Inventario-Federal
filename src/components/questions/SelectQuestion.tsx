@@ -25,7 +25,7 @@ export const SelectQuestion: React.FC<SelectQuestionProps> = ({
       <div className="flex items-start justify-between gap-2">
         <label
           htmlFor={`preg_${pregunta.id}`}
-          className="text-sm sm:text-base font-medium text-stone-100 leading-snug"
+          className="text-sm sm:text-base font-medium text-black leading-snug"
         >
           {pregunta.pregunta}
           {pregunta.requerida && (
@@ -45,7 +45,7 @@ export const SelectQuestion: React.FC<SelectQuestionProps> = ({
       </div>
 
       {pregunta.instruccion && (
-        <p className="text-xs text-stone-300 italic bg-black/20 p-2 rounded border-l-2 border-[#A57F2C]">
+        <p className="text-xs text-black/90 italic border-l-2 border-[#A57F2C] pl-2">
           {pregunta.instruccion}
         </p>
       )}
@@ -93,7 +93,7 @@ export const SelectQuestion: React.FC<SelectQuestionProps> = ({
             placeholder="Especifique documento, numeral, artículo, enlace o fecha..."
             className="w-full px-2.5 py-1.5 rounded glass-input text-xs text-stone-200"
           />
-          <div className="text-right text-[10px] text-stone-400">
+          <div className="px-1 text-right text-[10px] text-black">
             {(fuente || '').length} / {max}
           </div>
         </div>

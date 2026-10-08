@@ -43,14 +43,14 @@ export const MultiSelectQuestion: React.FC<MultiSelectQuestionProps> = ({
   return (
     <div className="space-y-2.5">
       <div>
-        <label className="block text-sm sm:text-base font-medium text-stone-100">
+        <label className="block text-sm sm:text-base font-medium text-black">
           {pregunta.pregunta}
           {pregunta.requerida && (
             <span className="text-rose-400 ml-1 font-bold" title="Campo obligatorio">*</span>
           )}
         </label>
         {pregunta.instruccion && (
-          <p className="text-xs text-stone-300 italic bg-black/20 p-2 rounded border-l-2 border-[#A57F2C] mt-1.5">
+          <p className="text-xs text-black/90 italic border-l-2 border-[#A57F2C] pl-2 mt-1.5">
             {pregunta.instruccion}
           </p>
         )}
@@ -67,7 +67,7 @@ export const MultiSelectQuestion: React.FC<MultiSelectQuestionProps> = ({
               className={`flex items-start gap-2.5 p-3 rounded-lg text-left transition-all text-xs sm:text-sm ${
                 isSelected
                   ? 'bg-[#611232]/70 border border-[#A57F2C] text-stone-100 shadow-md ring-1 ring-[#A57F2C]/40'
-                  : 'bg-[#002F2A]/40 border border-[#A57F2C]/20 text-stone-300 hover:bg-[#002F2A]/70 hover:border-[#A57F2C]/40'
+                  : 'bg-[#002F2A]/40 border border-[#A57F2C]/20 text-black hover:bg-[#002F2A]/70 hover:border-[#A57F2C]/40'
               }`}
             >
               <div
@@ -85,7 +85,7 @@ export const MultiSelectQuestion: React.FC<MultiSelectQuestionProps> = ({
         })}
       </div>
 
-      <div className="flex items-center justify-between text-[11px] text-stone-400 pt-1">
+      <div className="flex items-center justify-between px-1 pt-1 text-[11px] text-black">
         <span>Seleccionados: {selectedList.length}</span>
         {error && <span className="text-rose-400 font-medium">{error}</span>}
       </div>

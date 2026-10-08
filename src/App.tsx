@@ -17,14 +17,13 @@ import { LandingView } from './components/LandingView';
 import { LoadingOverlay } from './components/LoadingOverlay';
 import { FormSectionView } from './components/FormSectionView';
 import { FileUploadSection } from './components/FileUploadSection';
-import { ReviewSection } from './components/ReviewSection';
 import { ConfirmationModal } from './components/ConfirmationModal';
 import { SuccessView } from './components/SuccessView';
-import { ArchitectureModal } from './components/ArchitectureModal';
 import { ToastContainer, ToastMessage } from './components/ToastContainer';
 import { ApiService } from './services/apiService';
 import {
   getAllRespuestasLocal,
+  saveRespuestaLocal,
   getDatosUsuarioLocal,
   saveDatosUsuarioLocal,
   getArchivosLocal,
@@ -37,14 +36,16 @@ import {
 
 import { SectionBackground } from './components/SectionBackground';
 import { ASSET_IMAGES } from './assets/images';
-import { AdminDataView } from './components/admin/AdminDataView';
+import { FrontValidationAccess } from './components/FrontValidationAccess';
 
-export type AppStep = 'landing' | 'section' | 'archivos' | 'review' | 'success';
+export type AppStep = 'landing' | 'section' | 'archivos' | 'success';
+
+const getCaptureScope = (programKey: string, programYear: string) =>
+  programKey && programYear ? `${programKey.trim()}::${programYear.trim()}` : '';
 
 const S313_RESPUESTA_PREGUNTA_10 = 'La persona Tesorera del COSABI será la única y absoluta responsable de la recepción, custodia, administración y ejecución del subsidio ministrado para los USPN, debiendo resguardar y conservar la documentación original comprobatoria correspondiente al Expediente de Actividades. Dicha información deberá estar disponible en copia simple en la USPN para cualquier requerimiento que soliciten directamente las instancias fiscalizadoras y/o IMSS-BIENESTAR para su consulta in situ.';
 const S313_RESPUESTA_PREGUNTA_11 = 'Secretaría del Bienestar';
 const S313_RESPUESTA_PREGUNTA_7_ANTERIOR = 'Nivel Comunitario (Ejecución y Vigilancia):\nComité de La Clínica es Nuestra (COSABI)\nComité de Contraloría Social\nNivel Institucional (Normatividad y Operación):\nIMSS-BIENESTAR\nSecretaría de Bienestar / Facilitadores Autorizados (FA)\nComité Técnico del PLCEN (titular de la Dirección General de IMSS-BIENESTAR)';
-const S313_COMENTARIO_DIRECTOR = 'Servicios de Salud del Instituto Mexicano del Seguro Social para el Bienestar (IMSS-BIENESTAR): Director General, Alejandro Antonio Calderón Alipi';
 const S313_RESPUESTAS_ADICIONALES: Record<string, { seccionId: string; pregunta: string; valor: string }> = {
   '12': {
     seccionId: 'normatividad_objetivo',
@@ -71,32 +72,11 @@ const S313_RESPUESTAS_ADICIONALES: Record<string, { seccionId: string; pregunta:
     pregunta: '16. Registre cada unidad de medida utilizada para cuantificar la población potencial y la cantidad correspondiente.',
     valor: 'Número de personas sin acceso a la seguridad social',
   },
-  comentario_6: {
-    seccionId: 'datos_generales',
-    pregunta: 'Comentario de la pregunta 6',
-    valor: S313_COMENTARIO_DIRECTOR,
-  },
-  comentario_7: {
-    seccionId: 'datos_generales',
-    pregunta: 'Comentario de la pregunta 7',
-    valor: 'Nivel Comunitario (Ejecución y Vigilancia):\nComité de La Clínica es Nuestra (COSABI)\nComité de Contraloría Social\nNivel Institucional (Normatividad y Operación):\nIMSS-BIENESTAR\nSecretaría de Bienestar / Facilitadores Autorizados (FA)\nComité Técnico del PLCEN (titular de la Dirección General de IMSS-BIENESTAR)',
-  },
-  comentario_30: {
-    seccionId: 'apoyos_poblacion_atendida',
-    pregunta: 'Comentario de la pregunta 30',
-    valor: 'De acuerdo con la MIR, el presupuesto es de 6439.35 millones de pesos',
-  },
-  comentario_31: {
-    seccionId: 'apoyos_poblacion_atendida',
-    pregunta: 'Comentario de la pregunta 31',
-    valor: 'Queda duda si es lo referente a la pregunta.\nServicios de Salud del Instituto Mexicano del Seguro Social para el Bienestar (IMSS-BIENESTAR): Director General, Alejandro Antonio Calderón Alipi',
-  },
 };
 
 export default function App() {
   const [step, setStep] = useState<AppStep>('landing');
   const [currentSectionIndex, setCurrentSectionIndex] = useState<number>(0);
-  const [maxSectionReached, setMaxSectionReached] = useState<number>(0);
 
   const [usuario, setUsuario] = useState<DatosUsuario>({
     nombre: '',
@@ -108,6 +88,7 @@ export default function App() {
   });
 
   const [respuestas, setRespuestas] = useState<Record<string, RespuestaItem>>({});
+  const [submittedSectionsByScope, setSubmittedSectionsByScope] = useState<Record<string, string[]>>({});
   const [claveProgramaBloqueada, setClaveProgramaBloqueada] = useState(false);
   const [isAdminView, setIsAdminView] = useState(false);
   const [archivos, setArchivos] = useState<ArchivoAdjunto[]>([]);
@@ -126,13 +107,17 @@ export default function App() {
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAccessLoading, setIsAccessLoading] = useState(false);
-  const [isArchitectureModalOpen, setIsArchitectureModalOpen] = useState(false);
 
   const [folioGenerado, setFolioGenerado] = useState<string>('');
   const [fechaFinalizacion, setFechaFinalizacion] = useState<string>('');
 
   const saveTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({});
   const accessLoadingTimeoutRef = useRef<number | null>(null);
+  const claveProgramaActual = String(respuestas['clave_programa']?.valor ?? '').trim();
+  const anioProgramaActual = String(respuestas['anio_captura']?.valor ?? '').trim();
+  const captureScope = getCaptureScope(claveProgramaActual, anioProgramaActual);
+  const submittedSections = captureScope ? submittedSectionsByScope[captureScope] ?? [] : [];
+  const allSectionsSubmitted = submittedSections.length === SECCIONES_CUESTIONARIO.length;
 
   useEffect(() => {
     const currentState = window.history.state;
@@ -162,7 +147,7 @@ export default function App() {
           setCurrentSectionIndex(Math.max(0, Math.min(restoredIndex, SECCIONES_CUESTIONARIO.length - 1)));
         }
         const restoredStep = event.state.questionnaireStep;
-        if (restoredStep === 'archivos' || restoredStep === 'review') {
+        if (restoredStep === 'archivos') {
           setStep(restoredStep);
         } else {
           setStep('section');
@@ -257,7 +242,7 @@ export default function App() {
         }
 
         if (meta) {
-          if (meta.maxSectionReached !== undefined) setMaxSectionReached(meta.maxSectionReached);
+          if (meta.submittedSectionsByScope) setSubmittedSectionsByScope(meta.submittedSectionsByScope);
           if (meta.folio) setFolioGenerado(meta.folio);
           if (meta.fechaFinalizacion) setFechaFinalizacion(meta.fechaFinalizacion);
         }
@@ -482,7 +467,11 @@ export default function App() {
   };
 
   const beginQuestionnaire = (resume = false) => {
-    const sectionIndex = resume ? currentSectionIndex : 0;
+    const firstOpenIndex = SECCIONES_CUESTIONARIO.findIndex((section) => !submittedSections.includes(section.id));
+    const canResumeCurrent = resume && currentSectionIndex >= 0 &&
+      !submittedSections.includes(SECCIONES_CUESTIONARIO[currentSectionIndex]?.id);
+    const sectionIndex = canResumeCurrent ? currentSectionIndex : firstOpenIndex;
+    const nextStep = sectionIndex < 0 ? 'archivos' : 'section';
     if (window.matchMedia('(min-width: 1024px)').matches) {
       const currentState = window.history.state;
       const state = currentState && typeof currentState === 'object' ? currentState : {};
@@ -491,8 +480,8 @@ export default function App() {
           {
             ...state,
             questionnaireFlow: 'active',
-            questionnaireStep: 'section',
-            currentSectionIndex: sectionIndex,
+            questionnaireStep: nextStep,
+            currentSectionIndex: Math.max(sectionIndex, 0),
           },
           '',
           window.location.href
@@ -502,14 +491,18 @@ export default function App() {
 
     setIsAccessLoading(true);
     accessLoadingTimeoutRef.current = window.setTimeout(() => {
-      setCurrentSectionIndex(sectionIndex);
-      setStep('section');
+      if (sectionIndex < 0) {
+        setStep('archivos');
+      } else {
+        setCurrentSectionIndex(sectionIndex);
+        setStep('section');
+      }
       setIsAccessLoading(false);
       accessLoadingTimeoutRef.current = null;
     }, 2000);
   };
 
-  const pushQuestionnaireHistory = (nextStep: 'section' | 'archivos' | 'review', sectionIndex = currentSectionIndex) => {
+  const pushQuestionnaireHistory = (nextStep: 'section' | 'archivos', sectionIndex = currentSectionIndex) => {
     if (!window.matchMedia('(min-width: 1024px)').matches) return;
     const currentState = window.history.state;
     const state = currentState && typeof currentState === 'object' ? currentState : {};
@@ -525,62 +518,61 @@ export default function App() {
     );
   };
 
-  // 7. Navegación entre las 6 secciones
-  const handleNextSection = () => {
-    if (currentSectionIndex < SECCIONES_CUESTIONARIO.length - 1) {
-      const nextIdx = currentSectionIndex + 1;
-      pushQuestionnaireHistory('section', nextIdx);
-      setCurrentSectionIndex(nextIdx);
-      const newMax = Math.max(maxSectionReached, nextIdx);
-      setMaxSectionReached(newMax);
-      saveMetaFormulario({ step: 'section', currentSectionIndex: nextIdx, maxSectionReached: newMax });
-    } else {
-      // Fin de las 6 secciones -> ir a Archivos
-      pushQuestionnaireHistory('archivos');
-      setStep('archivos');
-      saveMetaFormulario({ step: 'archivos' });
-    }
-  };
-
-  const handlePrevSection = () => {
-    if (currentSectionIndex > 0) {
-      const previousIndex = currentSectionIndex - 1;
-      setCurrentSectionIndex(previousIndex);
-      if (window.matchMedia('(min-width: 1024px)').matches) {
-        const currentState = window.history.state;
-        const state = currentState && typeof currentState === 'object' ? currentState : {};
-        window.history.replaceState(
-          { ...state, questionnaireFlow: 'active', questionnaireStep: 'section', currentSectionIndex: previousIndex },
-          '',
-          window.location.href
-        );
-      }
-    } else {
-      setStep('landing');
-      if (window.matchMedia('(min-width: 1024px)').matches) {
-        const currentState = window.history.state;
-        const state = currentState && typeof currentState === 'object' ? currentState : {};
-        window.history.replaceState(
-          { ...state, questionnaireFlow: 'landing', questionnaireStep: 'landing' },
-          '',
-          window.location.href
-        );
-      }
-    }
-  };
-
   const handleJumpToSection = (idx: number) => {
     if (idx < SECCIONES_CUESTIONARIO.length) {
+      if (submittedSections.includes(SECCIONES_CUESTIONARIO[idx].id)) return;
       pushQuestionnaireHistory('section', idx);
       setCurrentSectionIndex(idx);
       setStep('section');
-    } else if (idx === SECCIONES_CUESTIONARIO.length) {
+      void saveMetaFormulario({ step: 'section', currentSectionIndex: idx, submittedSectionsByScope });
+    } else {
+      if (!allSectionsSubmitted) {
+        addToast('Completa y envía las seis secciones antes de abrir Archivos.', 'info');
+        return;
+      }
       pushQuestionnaireHistory('archivos');
       setStep('archivos');
-    } else {
-      pushQuestionnaireHistory('review');
-      setStep('review');
+      void saveMetaFormulario({ step: 'archivos', submittedSectionsByScope });
     }
+  };
+
+  const handleSubmitSection = async (sectionId: string) => {
+    if (!captureScope) {
+      addToast('Selecciona la clave del programa y el año antes de enviar esta sección.', 'error');
+      setCurrentSectionIndex(0);
+      return;
+    }
+
+    const updatedSections = [...new Set([...(submittedSectionsByScope[captureScope] ?? []), sectionId])];
+    const updatedByScope = { ...submittedSectionsByScope, [captureScope]: updatedSections };
+    const nextOpenIndex = SECCIONES_CUESTIONARIO.findIndex((section) => !updatedSections.includes(section.id));
+
+    const sectionAnswers = Object.values(respuestas).filter((answer) => answer.seccionId === sectionId);
+    for (const answer of sectionAnswers) {
+      const pendingSave = saveTimeoutRef.current[answer.preguntaId];
+      if (pendingSave) clearTimeout(pendingSave);
+      await saveRespuestaLocal({ ...answer, estado: 'guardado' });
+      delete saveTimeoutRef.current[answer.preguntaId];
+    }
+
+    setSubmittedSectionsByScope(updatedByScope);
+
+    if (nextOpenIndex < 0) {
+      pushQuestionnaireHistory('archivos');
+      setStep('archivos');
+      void saveMetaFormulario({ step: 'archivos', submittedSectionsByScope: updatedByScope });
+    } else {
+      pushQuestionnaireHistory('section', nextOpenIndex);
+      setCurrentSectionIndex(nextOpenIndex);
+      setStep('section');
+      void saveMetaFormulario({
+        step: 'section',
+        currentSectionIndex: nextOpenIndex,
+        submittedSectionsByScope: updatedByScope,
+      });
+    }
+
+    addToast('Sección enviada y bloqueada para esta clave y año.', 'success');
   };
 
   // 8. Finalizar formulario
@@ -617,22 +609,22 @@ export default function App() {
     if (window.confirm('¿Está seguro de iniciar una nueva captura? Se limpiará la memoria local para un nuevo registro.')) {
       await clearAllLocalData();
       setRespuestas({});
+      setSubmittedSectionsByScope({});
       setClaveProgramaBloqueada(false);
       setArchivos([]);
       setCurrentSectionIndex(0);
-      setMaxSectionReached(0);
       setFolioGenerado('');
       setStep('landing');
     }
   };
 
-  // Cálculo de progreso para las 6 secciones + archivos + revisión
-  const totalPasos = SECCIONES_CUESTIONARIO.length + 2; // 6 secciones + Archivos + Revisión = 8 pasos
+  // Progreso para las seis secciones y archivos.
+  const totalPasos = SECCIONES_CUESTIONARIO.length + 1;
   let pasoActual = 0;
   if (step === 'landing') pasoActual = 0;
   else if (step === 'section') pasoActual = currentSectionIndex + 1;
   else if (step === 'archivos') pasoActual = SECCIONES_CUESTIONARIO.length + 1;
-  else if (step === 'review' || step === 'success') pasoActual = totalPasos;
+  else if (step === 'success') pasoActual = totalPasos;
 
   const porcentajeProgreso = Math.min(100, Math.round((pasoActual / totalPasos) * 100));
 
@@ -644,7 +636,7 @@ export default function App() {
   let bgAlt = 'Equipamiento Médico y Unidades de Salud - INEGI';
 
   if (step === 'landing') {
-    currentBackground = ASSET_IMAGES.capturaInformacion;
+    currentBackground = ASSET_IMAGES.inicio;
     bgMode = 'instructions';
     bgAlt = 'Instrucciones de Captura y Personal de Salud - INEGI';
   } else if (step === 'section') {
@@ -655,10 +647,6 @@ export default function App() {
     currentBackground = ASSET_IMAGES.documentacionMedica;
     bgMode = 'form';
     bgAlt = 'Documentación y Archivos de Equipamiento en Salud';
-  } else if (step === 'review') {
-    currentBackground = ASSET_IMAGES.tecnologiaMedica;
-    bgMode = 'form';
-    bgAlt = 'Revisión del Instrumento de Salud y Equipamiento';
   } else if (step === 'success') {
     currentBackground = ASSET_IMAGES.unidadSalud;
     bgMode = 'form';
@@ -668,14 +656,12 @@ export default function App() {
   return (
     <div className="relative min-h-screen bg-[#020c0b] text-stone-100 flex flex-col font-sans selection:bg-[#A57F2C]/40 selection:text-white">
       {/* CAPA DE FONDO REAL: Con manejo de carga, error y capa oscura semitransparente */}
-      {!isAdminView && (
-        <SectionBackground
-          imageUrl={currentBackground}
-          alt={bgAlt}
-          mode={bgMode}
-          overlayOpacity={bgMode === 'instructions' ? 0.14 : 0.80}
-        />
-      )}
+      <SectionBackground
+        imageUrl={isAdminView ? ASSET_IMAGES.formulario : step === 'landing' ? currentBackground : ASSET_IMAGES.usuario}
+        alt={isAdminView ? 'Fondo de validación de datos' : bgAlt}
+        mode={isAdminView ? 'form' : bgMode}
+        overlayOpacity={0.08}
+      />
 
       {/* Header Institucional */}
       <Header
@@ -683,31 +669,22 @@ export default function App() {
         estadoGuardado={estadoGuardado}
         seccionActualTitulo={step === 'section' ? seccionActual?.titulo : undefined}
         onManualSync={handleManualSync}
-        onOpenInfo={() => setIsArchitectureModalOpen(true)}
         onAdminAccess={() => setIsAdminView(true)}
         isLanding={step === 'landing' && !isAdminView}
       />
 
-      {/* Indicador de Progreso permanente en las 6 secciones */}
+      {/* Navegación por secciones y archivos */}
       {!isAdminView && step !== 'landing' && step !== 'success' && (
         <ProgressBar
-          seccionActualIndex={
-            step === 'archivos'
-              ? SECCIONES_CUESTIONARIO.length
-              : step === 'review'
-              ? SECCIONES_CUESTIONARIO.length + 1
-              : currentSectionIndex
-          }
+          seccionActualIndex={step === 'archivos' ? SECCIONES_CUESTIONARIO.length : currentSectionIndex}
           totalSecciones={totalPasos}
-          nombreSeccionActual={
-            step === 'archivos'
-              ? 'Documentación / Archivos'
-              : step === 'review'
-              ? 'Revisión del Formulario'
-              : seccionActual.titulo
-          }
+          nombreSeccionActual={step === 'archivos' ? 'Documentación / Archivos' : seccionActual.titulo}
           porcentaje={porcentajeProgreso}
-          maxSeccionAlcanzada={maxSectionReached}
+          maxSeccionAlcanzada={totalPasos - 1}
+          seccionesBloqueadas={[
+            ...submittedSections.map((sectionId) => SECCIONES_CUESTIONARIO.findIndex((section) => section.id === sectionId)),
+            ...(!allSectionsSubmitted ? [SECCIONES_CUESTIONARIO.length] : []),
+          ]}
           onSelectSeccion={handleJumpToSection}
         />
       )}
@@ -715,7 +692,7 @@ export default function App() {
       {/* Contenido Principal con Card Transparente sobre Fondo Opacado */}
       <main className="relative z-10 flex-1 w-full max-w-7xl mx-auto">
         {isAdminView ? (
-          <AdminDataView onClose={() => setIsAdminView(false)} />
+          <FrontValidationAccess onClose={() => setIsAdminView(false)} />
         ) : (
           <>
         {step === 'landing' && (
@@ -723,7 +700,6 @@ export default function App() {
             hasSavedData={hasSavedData}
             onStart={() => beginQuestionnaire()}
             onResume={() => beginQuestionnaire(true)}
-            onOpenArchitecture={() => setIsArchitectureModalOpen(true)}
           />
         )}
 
@@ -735,16 +711,14 @@ export default function App() {
             clavePrograma={String(respuestas['clave_programa']?.valor ?? '')}
             anioPrograma={String(respuestas['anio_captura']?.valor ?? '')}
             claveBloqueada={claveProgramaBloqueada}
-            isFirstSection={currentSectionIndex === 0}
-            isLastQuestionSection={currentSectionIndex === SECCIONES_CUESTIONARIO.length - 1}
+            isSubmitted={submittedSections.includes(seccionActual.id)}
             onToggleClaveBloqueada={() => setClaveProgramaBloqueada((bloqueada) => !bloqueada)}
             onClaveProgramaChange={handleClaveProgramaChange}
             onAnioProgramaChange={(valor) =>
               handleRespuestaChange('anio_captura', 'datos_generales', 'Año del programa', valor)
             }
             onRespuestaChange={handleRespuestaChange}
-            onNext={handleNextSection}
-            onPrev={handlePrevSection}
+            onSubmitSection={() => handleSubmitSection(seccionActual.id)}
           />
         )}
 
@@ -754,33 +728,10 @@ export default function App() {
             isOnline={estadoConexion.online && estadoConexion.apiDisponible}
             onUpload={handleFileUpload}
             onDelete={handleFileDelete}
-            onNext={() => setStep('review')}
-            onPrev={() => {
-              setCurrentSectionIndex(SECCIONES_CUESTIONARIO.length - 1);
-              setStep('section');
-            }}
+            onSubmit={() => setIsConfirmationOpen(true)}
           />
         )}
 
-        {step === 'review' && (
-          <ReviewSection
-            secciones={SECCIONES_CUESTIONARIO}
-            usuario={usuario}
-            respuestas={respuestas}
-            archivos={archivos}
-            onEditSection={(idx) => {
-              setCurrentSectionIndex(idx);
-              setStep('section');
-            }}
-            onEditUserData={() => {
-              setCurrentSectionIndex(0);
-              setStep('section');
-            }}
-            onEditArchivos={() => setStep('archivos')}
-            onSubmitPrompt={() => setIsConfirmationOpen(true)}
-            onPrev={() => setStep('archivos')}
-          />
-        )}
 
         {step === 'success' && (
           <SuccessView
@@ -802,12 +753,6 @@ export default function App() {
         isSubmitting={isSubmitting}
         onCancel={() => setIsConfirmationOpen(false)}
         onConfirm={handleConfirmSubmit}
-      />
-
-      {/* Modal de Arquitectura y Especificación */}
-      <ArchitectureModal
-        isOpen={isArchitectureModalOpen}
-        onClose={() => setIsArchitectureModalOpen(false)}
       />
 
       {/* Notificaciones Toast flotantes */}

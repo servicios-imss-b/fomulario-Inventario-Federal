@@ -12,7 +12,6 @@ interface LandingViewProps {
   onStart: () => void;
   hasSavedData: boolean;
   onResume?: () => void;
-  onOpenArchitecture?: () => void;
 }
 
 export const LandingView: React.FC<LandingViewProps> = ({

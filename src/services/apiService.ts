@@ -46,9 +46,7 @@ export class ApiService {
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
-      const contentType = res.headers.get('content-type') || '';
-      const data = contentType.includes('application/json') ? await res.json() : null;
-      this.isApiAvailable = res.ok && data?.status === 'ok';
+      this.isApiAvailable = res.ok;
     } catch {
       this.isApiAvailable = false;
     }
@@ -58,7 +56,7 @@ export class ApiService {
   }
 
   public static async saveRespuesta(respuesta: RespuestaItem): Promise<{ synced: boolean; error?: string }> {
-    // Pages has no API server; answers are synced together at final submission.
+    // 1. Siempre guardar en IndexedDB primero
     await saveRespuestaLocal({ ...respuesta, estado: supabaseClient ? 'pendiente_sync' : 'guardado' });
 
     if (supabaseClient) {
@@ -246,10 +244,6 @@ export class ApiService {
 
     const online = await this.checkConnection();
     if (!online) {
-      const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-      if (!['localhost', '127.0.0.1'].includes(hostname)) {
-        throw new Error('Configura VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY en GitHub Actions para guardar desde Pages.');
-      }
       return {
         success: true,
         folio: fallbackFolio,

@@ -9,15 +9,14 @@ import { RadioQuestion } from './questions/RadioQuestion';
 import { DateQuestion } from './questions/DateQuestion';
 import { GridQuantificationQuestion } from './questions/GridQuantificationQuestion';
 import {
-  ArrowLeft,
-  ArrowRight,
   AlertCircle,
   Activity,
   Eye,
   EyeOff,
   Layers,
   Lock,
-  MessageSquare,
+  Pencil,
+  Send,
   Unlock,
 } from 'lucide-react';
 
@@ -27,14 +26,12 @@ interface FormSectionViewProps {
   clavePrograma: string;
   anioPrograma: string;
   claveBloqueada: boolean;
-  isFirstSection: boolean;
-  isLastQuestionSection: boolean;
+  isSubmitted: boolean;
   onToggleClaveBloqueada: () => void;
   onClaveProgramaChange: (valor: string) => void;
   onAnioProgramaChange: (valor: string) => void;
   onRespuestaChange: (preguntaId: string, seccionId: string, pregunta: string, valor: any, fuente?: string) => void;
-  onNext: () => void;
-  onPrev: () => void;
+  onSubmitSection: () => void;
 }
 
 export const FormSectionView: React.FC<FormSectionViewProps> = ({
@@ -43,20 +40,18 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
   clavePrograma,
   anioPrograma,
   claveBloqueada,
-  isFirstSection,
-  isLastQuestionSection,
+  isSubmitted,
   onToggleClaveBloqueada,
   onClaveProgramaChange,
   onAnioProgramaChange,
   onRespuestaChange,
-  onNext,
-  onPrev,
+  onSubmitSection,
 }) => {
   const [errores, setErrores] = useState<Record<string, string>>({});
   const [mostrarAlerta, setMostrarAlerta] = useState(false);
   const [mostrarRespondidas, setMostrarRespondidas] = useState(false);
+  const [mostrarResumen, setMostrarResumen] = useState(false);
   const [preguntaEnEdicion, setPreguntaEnEdicion] = useState<string | null>(null);
-  const [comentariosAbiertos, setComentariosAbiertos] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     setErrores({});
@@ -82,12 +77,6 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
     }
 
     return parentResponse === pregunta.dependeDe.valor;
-  };
-
-  const handleValidateAndNext = () => {
-    setErrores({});
-    setMostrarAlerta(false);
-    onNext();
   };
 
   const isQuestionAnswered = (pregunta: PreguntaConfig): boolean => {
@@ -125,6 +114,22 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
 
   const preguntasVisibles = seccion.preguntas.filter(isQuestionVisible);
   const respondidas = preguntasVisibles.filter(isQuestionAnswered);
+  const preguntasRequeridas = preguntasVisibles.filter((pregunta) => pregunta.requerida);
+  const seccionCompleta = preguntasRequeridas.length > 0 && preguntasRequeridas.every(isQuestionAnswered);
+
+  useEffect(() => {
+    setMostrarResumen(isSubmitted || seccionCompleta);
+  }, [seccion.id, isSubmitted, seccionCompleta]);
+
+  const formatSummaryValue = (value: unknown): string => {
+    if (value === null || value === undefined || value === '') return '—';
+    if (Array.isArray(value)) return value.map(String).join(', ');
+    if (typeof value === 'object') {
+      return Object.entries(value).map(([key, item]) => `${key}: ${String(item ?? '—')}`).join(' · ');
+    }
+    return String(value);
+  };
+
   const preguntasMostradas = mostrarRespondidas
     ? preguntasVisibles
     : preguntasVisibles.filter((pregunta) => {
@@ -146,28 +151,7 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
     const valor = currentResp ? currentResp.valor : '';
     const fuente = currentResp ? currentResp.fuente : '';
     const error = errores[preg.id];
-    const permiteComentario = Number.parseFloat(preg.id) >= 6;
-    const comentarioId = `comentario_${preg.id}`;
-    const comentario = String(respuestas[comentarioId]?.valor ?? '');
-    const maxComentario = comentarioId === 'comentario_7' ? 500 : 300;
-    const comentarioAbierto = comentariosAbiertos[preg.id] ?? Boolean(comentario);
-
     const isGuindaCard = preg.id === '20' || preg.id === '24' || preg.id === '30' || preg.id === '35';
-    const commentButton = (
-      <button
-        type="button"
-        aria-expanded={comentarioAbierto}
-        aria-controls={`comentario-pregunta-${preg.id}`}
-        onClick={() => setComentariosAbiertos((actuales) => ({
-          ...actuales,
-          [preg.id]: !comentarioAbierto,
-        }))}
-        className="inline-flex items-center gap-1 rounded-md border border-[#A57F2C]/35 px-2 py-1.5 text-xs font-semibold text-[#A57F2C] transition hover:bg-[#A57F2C]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A57F2C]"
-      >
-        <MessageSquare className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        {comentarioAbierto ? 'Ocultar comentarios' : comentario ? 'Ver comentarios' : 'Agregar comentario'}
-      </button>
-    );
 
     return (
       <div
@@ -198,7 +182,6 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
                   valor={valor}
                   fuente={fuente}
                   error={error}
-                  commentAction={permiteComentario ? commentButton : undefined}
                   onChange={(val, f) => onRespuestaChange(preg.id, seccion.id, preg.pregunta, val, f)}
                 />
               );
@@ -210,7 +193,6 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
                   fuente={fuente}
                   error={error}
                   readOnly={clavePrograma === 'S313' && ['10', '11'].includes(preg.id)}
-                  commentAction={permiteComentario ? commentButton : undefined}
                   onChange={(val, f) => onRespuestaChange(preg.id, seccion.id, preg.pregunta, val, f)}
                 />
               );
@@ -275,33 +257,6 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
               return null;
           }
         })()}
-        {permiteComentario && !['texto_corto', 'texto_largo'].includes(preg.tipo) && (
-          <div className="mt-4 border-t border-[#A57F2C]/20 pt-3">
-            {commentButton}
-          </div>
-        )}
-        {permiteComentario && comentarioAbierto && (
-          <div id={`comentario-pregunta-${preg.id}`} className="mt-3 space-y-1.5">
-            <label htmlFor={comentarioId} className="block text-xs font-medium text-stone-300">
-              Comentario de la pregunta {preg.id}
-            </label>
-            <textarea
-              id={comentarioId}
-              rows={3}
-              maxLength={maxComentario}
-              value={comentario}
-              onChange={(event) => onRespuestaChange(
-                comentarioId,
-                seccion.id,
-                `Comentario de la pregunta ${preg.id}`,
-                event.target.value
-              )}
-              placeholder="Escribe un comentario..."
-              className="w-full resize-y rounded-lg glass-input px-3 py-2 text-sm text-stone-100 placeholder:text-stone-400"
-            />
-            <p className="text-right text-[11px] text-stone-400">{comentario.length} / {maxComentario}</p>
-          </div>
-        )}
       </div>
     );
   };
@@ -311,9 +266,9 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
   return (
     <div className="relative min-h-[calc(100vh-8rem)] py-6 sm:py-8 px-4 sm:px-6 max-w-4xl mx-auto flex flex-col justify-between z-10">
       <div className="space-y-6">
-        <div className="glass-institutional rounded-2xl border border-[#A57F2C]/30 p-4 shadow-xl sm:p-5">
+        <div className="glass-form-surface rounded-2xl border border-slate-900/15 p-4 shadow-xl sm:p-5">
           <div className="mb-2 flex items-center justify-between gap-2">
-            <label htmlFor="clave-programa" className="block text-sm font-semibold text-stone-100">
+            <label htmlFor="clave-programa" className="block text-sm font-semibold text-black">
               Clave del programa
             </label>
             {clavePrograma && (
@@ -321,7 +276,7 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
                 type="button"
                 onClick={onToggleClaveBloqueada}
                 aria-pressed={!claveBloqueada}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-[#A57F2C]/40 px-2.5 py-1.5 text-xs font-medium text-stone-200 transition hover:bg-[#A57F2C]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A57F2C]"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-slate-900/20 px-2.5 py-1.5 text-xs font-medium text-black transition hover:bg-[#A57F2A]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A57F2C]"
                 title={claveBloqueada ? 'Desbloquear la clave para cambiarla' : 'Bloquear la clave actual'}
               >
                 {claveBloqueada ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
@@ -331,7 +286,7 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label htmlFor="clave-programa" className="mb-1.5 block text-xs font-medium text-stone-300">
+              <label htmlFor="clave-programa" className="mb-1.5 block text-xs font-medium text-black">
                 Clave del programa
               </label>
               <select
@@ -339,7 +294,7 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
                 value={clavePrograma}
                 disabled={claveBloqueada && Boolean(clavePrograma)}
                 onChange={(event) => onClaveProgramaChange(event.target.value)}
-                className="animated-select w-full rounded-lg border border-[#A57F2C]/50 bg-[#002F2A] px-3 py-2.5 text-sm text-white outline-none transition focus:border-[#A57F2C] focus:ring-2 focus:ring-[#A57F2C]/30 disabled:cursor-not-allowed disabled:opacity-70"
+                className="animated-select w-full rounded-lg border border-[#A57F2C]/50 bg-[#002F2A] px-3 py-2.5 text-sm text-white outline-none transition focus:border-[#A57F2C] focus:ring-2 focus:ring-[#A57F2C]/30 disabled:cursor-not-allowed"
               >
                 <option value="">Selecciona una clave</option>
                 {['S313', 'E001', 'U013', 'S200', 'U313', 'E003', 'E004', 'E006'].map((clave) => (
@@ -348,7 +303,7 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
               </select>
             </div>
             <div>
-              <label htmlFor="anio-programa" className="mb-1.5 block text-xs font-medium text-stone-300">
+              <label htmlFor="anio-programa" className="mb-1.5 block text-xs font-medium text-black">
                 Año del programa
               </label>
               <select
@@ -372,25 +327,25 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
               SECCIÓN {seccion.numero} DE 6
             </span>
             {seccion.temaPresupuesto && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#002F2A] border border-[#A57F2C]/40 text-stone-200 text-xs font-medium">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 text-black text-xs font-medium">
                 <Activity className="w-3.5 h-3.5 text-[#A57F2C]" />
                 <span className="truncate max-w-[280px] sm:max-w-md">{seccion.temaPresupuesto}</span>
               </span>
             )}
           </div>
 
-          <h2 className="text-lg sm:text-xl md:text-2xl font-sans font-semibold tracking-tight text-stone-100">
+          <h2 className="text-lg sm:text-xl md:text-2xl font-sans font-semibold tracking-tight text-black">
             {seccion.titulo}
           </h2>
 
           {seccion.subtitulo && (
-            <p className="text-xs sm:text-sm text-[#A57F2C] font-semibold">
+            <p className="text-xs sm:text-sm text-black font-semibold">
               {seccion.subtitulo}
             </p>
           )}
 
           {seccion.descripcion && (
-            <p className="text-xs text-stone-300 pt-1 border-t border-[#A57F2C]/20 leading-relaxed">
+            <p className="text-xs text-black/90 pt-1 border-t border-[#A57F2C]/20 leading-relaxed">
               {seccion.descripcion}
             </p>
           )}
@@ -409,67 +364,85 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
           </div>
         )}
 
-        {/* Lista de preguntas agrupadas por subsección */}
-        <div className="space-y-4">
-          {respondidas.length > 0 && (
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => setMostrarRespondidas((actual) => !actual)}
-                aria-expanded={mostrarRespondidas}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[#A57F2C]/40 px-3 py-1.5 text-xs font-medium text-stone-200 transition hover:bg-[#A57F2C]/15"
-              >
-                {mostrarRespondidas ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                {mostrarRespondidas ? 'Ocultar preguntas respondidas' : 'Ver preguntas respondidas'}
-              </button>
-            </div>
-          )}
-
-          {preguntasMostradas.map((preg) => {
-            const isNewSubseccion = preg.subseccion && preg.subseccion !== lastSubseccion;
-            if (preg.subseccion) {
-              lastSubseccion = preg.subseccion;
-            }
-
-            return (
-              <React.Fragment key={preg.id}>
-                {isNewSubseccion && (
-                  <div className="pt-3 pb-1">
-                    <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-[#002F2A]/55 backdrop-blur-md border border-[#A57F2C]/40 text-[#A57F2C] text-xs font-bold uppercase tracking-wider shadow-sm">
-                      <Layers className="w-3.5 h-3.5 text-[#A57F2C]" />
-                      <span>{preg.subseccion}</span>
-                    </div>
+        {mostrarResumen ? (
+          <section className="glass-form-surface space-y-4 rounded-xl border border-slate-900/15 p-4 shadow-lg sm:p-6">
+            <h3 className="text-base font-semibold text-black">
+              {isSubmitted ? 'Información enviada' : 'Resumen de la sección'}
+            </h3>
+            <dl className="space-y-3">
+              {preguntasVisibles.filter(isQuestionAnswered).map((pregunta) => {
+                const respuesta = respuestas[pregunta.id];
+                return (
+                  <div key={pregunta.id} className="border-b border-slate-900/10 pb-3 last:border-0">
+                    <dt className="text-xs font-semibold text-black">{pregunta.pregunta}</dt>
+                    <dd className="mt-1 whitespace-pre-wrap text-sm text-slate-800">
+                      {formatSummaryValue(respuesta?.valor)}
+                    </dd>
+                    {respuesta?.fuente && (
+                      <dd className="mt-1 text-xs text-slate-600">Fuente: {respuesta.fuente}</dd>
+                    )}
                   </div>
-                )}
-                {renderQuestion(preg)}
-              </React.Fragment>
-            );
-          })}
-        </div>
+                );
+              })}
+            </dl>
+            {!isSubmitted && (
+              <div className="flex flex-col justify-end gap-2 border-t border-slate-900/10 pt-4 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => setMostrarResumen(false)}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-900/20 px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-black/5"
+                >
+                  <Pencil className="h-4 w-4" />
+                  Editar sección
+                </button>
+                <button
+                  type="button"
+                  onClick={onSubmitSection}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#003d35] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#002f2a]"
+                >
+                  <Send className="h-4 w-4" />
+                  Enviar información
+                </button>
+              </div>
+            )}
+          </section>
+        ) : (
+          <div className="space-y-4">
+            {respondidas.length > 0 && (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setMostrarRespondidas((actual) => !actual)}
+                  aria-expanded={mostrarRespondidas}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#A57F2C]/40 px-3 py-1.5 text-xs font-medium text-stone-200 transition hover:bg-[#A57F2C]/15"
+                >
+                  {mostrarRespondidas ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  {mostrarRespondidas ? 'Ocultar preguntas respondidas' : 'Ver preguntas respondidas'}
+                </button>
+              </div>
+            )}
+
+            {preguntasMostradas.map((preg) => {
+              const isNewSubseccion = preg.subseccion && preg.subseccion !== lastSubseccion;
+              if (preg.subseccion) lastSubseccion = preg.subseccion;
+              return (
+                <React.Fragment key={preg.id}>
+                  {isNewSubseccion && (
+                    <div className="pt-3 pb-1">
+                      <div className="inline-flex items-center gap-2 text-black text-xs font-bold uppercase tracking-wider">
+                        <Layers className="h-3.5 w-3.5 text-black" />
+                        <span>{preg.subseccion}</span>
+                      </div>
+                    </div>
+                  )}
+                  {renderQuestion(preg)}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* Barra de navegación inferior - Botones sólidos modernos SIN DEGRADADOS */}
-      <div className="mt-8 pt-6 border-t border-[#A57F2C]/30 flex flex-col-reverse sm:flex-row items-center justify-between gap-4">
-        <button
-          type="button"
-          onClick={onPrev}
-          className="w-full sm:w-auto px-6 py-3 rounded-xl text-xs sm:text-sm font-semibold text-stone-200 hover:text-white bg-[#002F2A] hover:bg-[#02433c] border border-[#A57F2C]/40 flex items-center justify-center gap-2 transition cursor-pointer shadow-md"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>← ANTERIOR</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={handleValidateAndNext}
-          className="w-full sm:w-auto px-8 py-3.5 rounded-xl text-xs sm:text-sm font-bold text-[#002F2A] bg-[#A57F2C] hover:bg-[#c4993a] border border-[#A57F2C] shadow-lg flex items-center justify-center gap-2 transition hover:scale-[1.02] cursor-pointer"
-        >
-          <span>
-            {isLastQuestionSection ? 'CONTINUAR A ARCHIVOS ADJUNTOS →' : 'SIGUIENTE SECCIÓN →'}
-          </span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
-      </div>
     </div>
   );
 };

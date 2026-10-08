@@ -10,15 +10,15 @@ import { ASSET_IMAGES } from '../assets/images';
 
 // Imágenes temáticas especializadas: Equipamiento Médico, Unidades de Salud y Personal de Captura
 export const IMAGENES_SALUD_PRESUPUESTO = {
-  general: ASSET_IMAGES.capturaInformacion, // Personal de salud e instrucciones de captura
-  instrucciones: ASSET_IMAGES.personalSalud, // Personal médico y de captura institucional
-  datosGenerales: ASSET_IMAGES.personalSalud, // Personal institucional de salud
-  normatividad: ASSET_IMAGES.unidadSalud, // Unidad de salud e infraestructura médica
-  poblacion: ASSET_IMAGES.tecnologiaMedica, // Tecnología y equipamiento médico diagnóstico
-  priorizacion: ASSET_IMAGES.unidadSalud, // Unidades de salud y clínicas territoriales
-  padron: ASSET_IMAGES.documentacionMedica, // Registros médicos y expedientes
-  apoyos: ASSET_IMAGES.equipoMedico, // Equipamiento médico clínico y suministros
-  archivos: ASSET_IMAGES.documentacionMedica, // Comprobación y archivos técnicos
+  general: ASSET_IMAGES.inicio,
+  instrucciones: ASSET_IMAGES.usuario,
+  datosGenerales: ASSET_IMAGES.usuario,
+  normatividad: ASSET_IMAGES.formulario,
+  poblacion: ASSET_IMAGES.formulario,
+  priorizacion: ASSET_IMAGES.formulario,
+  padron: ASSET_IMAGES.formulario,
+  apoyos: ASSET_IMAGES.formulario,
+  archivos: ASSET_IMAGES.formulario,
 };
 
 export const SECCIONES_CUESTIONARIO: SeccionConfig[] = [
