@@ -6,7 +6,8 @@ export type TipoPregunta =
   | 'multiple'
   | 'radio'
   | 'fecha'
-  | 'grilla_cuantificacion';
+  | 'grilla_cuantificacion'
+  | 'tabla_cuantificacion';
 
 export interface PreguntaConfig {
   id: string; // ej: "1", "10", "10.1", "16.1", "20.1"
@@ -15,11 +16,17 @@ export interface PreguntaConfig {
   pregunta: string;
   tipo: TipoPregunta;
   opciones?: string[];
+  opcionesPorValor?: {
+    preguntaId: string;
+    opciones: Record<string, string[]>;
+  };
   requerida?: boolean;
   maxCaracteres?: number; // 300 para abiertas
   instruccion?: string;
+  avisoAntes?: string;
   placeholder?: string;
   capturarFuente?: boolean;
+  fuenteEtiqueta?: string;
   dependeDe?: {
     preguntaId: string;
     valor: string | string[];
@@ -53,6 +60,11 @@ export interface RespuestaItem {
   pregunta: string;
   valor: any; // string | string[] | number | object
   fuente?: string;
+  notaPrellenado?: string;
+  prellenada?: boolean;
+  prefillScope?: string;
+  prefillDisagreed?: boolean;
+  prefillEdited?: boolean;
   fechaActualizacion: string;
   estado: 'guardado' | 'pendiente_sync' | 'error';
 }

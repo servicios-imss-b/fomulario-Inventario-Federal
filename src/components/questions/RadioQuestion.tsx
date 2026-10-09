@@ -5,6 +5,7 @@ interface RadioQuestionProps {
   pregunta: PreguntaConfig;
   valor: string;
   error?: string;
+  disabled?: boolean;
   onChange: (valor: string) => void;
 }
 
@@ -12,6 +13,7 @@ export const RadioQuestion: React.FC<RadioQuestionProps> = ({
   pregunta,
   valor = '',
   error,
+  disabled = false,
   onChange,
 }) => {
   return (
@@ -36,8 +38,9 @@ export const RadioQuestion: React.FC<RadioQuestionProps> = ({
           return (
             <label
               key={idx}
-              onClick={() => onChange(opcion)}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-all text-xs sm:text-sm border ${
+              onClick={() => !disabled && onChange(opcion)}
+              aria-disabled={disabled}
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-xs sm:text-sm border ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${
                 isSelected
                   ? 'bg-[#611232]/70 border-[#A57F2C] text-stone-100 shadow-md ring-1 ring-[#A57F2C]/50'
                   : 'bg-[#002F2A]/40 border-[#A57F2C]/20 text-black hover:bg-[#002F2A]/70'

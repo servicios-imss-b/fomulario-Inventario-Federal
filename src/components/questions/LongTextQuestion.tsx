@@ -99,7 +99,7 @@ export const LongTextQuestion: React.FC<LongTextQuestionProps> = ({
       {pregunta.capturarFuente && mostrarFuente && (
         <div className="mt-2 p-2.5 rounded-md bg-[#611232]/30 border border-[#A57F2C]/30 space-y-1">
           <label className="text-xs font-semibold text-[#A57F2C] flex items-center gap-1">
-            <Bookmark className="w-3 h-3" /> Fuente documental / normativa:
+            <Bookmark className="w-3 h-3" /> {pregunta.fuenteEtiqueta || 'Fuente documental / normativa:'}
           </label>
           <input
             type="text"

@@ -7,12 +7,11 @@ import { SelectQuestion } from './questions/SelectQuestion';
 import { MultiSelectQuestion } from './questions/MultiSelectQuestion';
 import { RadioQuestion } from './questions/RadioQuestion';
 import { DateQuestion } from './questions/DateQuestion';
-import { GridQuantificationQuestion } from './questions/GridQuantificationQuestion';
+import { MatrixQuestion } from './questions/MatrixQuestion';
+import { RepeatableQuantificationQuestion } from './questions/RepeatableQuantificationQuestion';
 import {
   AlertCircle,
   Activity,
-  Eye,
-  EyeOff,
   Layers,
   Lock,
   Pencil,
@@ -30,6 +29,7 @@ interface FormSectionViewProps {
   onToggleClaveBloqueada: () => void;
   onClaveProgramaChange: (valor: string) => void;
   onAnioProgramaChange: (valor: string) => void;
+  onPrefillAgreement: (preguntaId: string, disagreed: boolean) => void;
   onRespuestaChange: (preguntaId: string, seccionId: string, pregunta: string, valor: any, fuente?: string) => void;
   onSubmitSection: () => void;
 }
@@ -44,20 +44,47 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
   onToggleClaveBloqueada,
   onClaveProgramaChange,
   onAnioProgramaChange,
+  onPrefillAgreement,
   onRespuestaChange,
   onSubmitSection,
 }) => {
   const [errores, setErrores] = useState<Record<string, string>>({});
   const [mostrarAlerta, setMostrarAlerta] = useState(false);
-  const [mostrarRespondidas, setMostrarRespondidas] = useState(false);
   const [mostrarResumen, setMostrarResumen] = useState(false);
-  const [preguntaEnEdicion, setPreguntaEnEdicion] = useState<string | null>(null);
+  const supportCount = seccion.id === 'apoyos_poblacion_atendida'
+    ? Math.min(20, Math.max(1, Number(respuestas['__apoyos_count']?.valor ?? 1)))
+    : 1;
+
+  const preguntasDeSeccion = seccion.id === 'apoyos_poblacion_atendida'
+    ? seccion.preguntas.flatMap((pregunta) => {
+        const supportIdMatch = pregunta.id.match(/^(24|25|26|27|27\.1|28|28\.1|29|29\.1|30|31|32|33|34|35|35\.1|36|37|37\.1)$/);
+        if (!supportIdMatch) return [pregunta];
+
+        return Array.from({ length: supportCount }, (_, supportIndex) => {
+          const suffix = `__apoyo_${supportIndex}`;
+          const remapId = (id: string) => /^(24|25|26|27|27\.1|28|28\.1|29|29\.1|30|31|32|33|34|35|35\.1|36|37|37\.1)$/.test(id)
+            ? `${id}${suffix}`
+            : id;
+          const supportName = String(respuestas[`24${suffix}`]?.valor ?? '').trim();
+          return {
+            ...pregunta,
+            id: `${pregunta.id}${suffix}`,
+            pregunta: pregunta.pregunta.replace('(nombre de apoyo)', supportName || `apoyo ${supportIndex + 1}`),
+            subseccion: `Tipo de apoyo ${supportIndex + 1}: ${pregunta.subseccion ?? ''}`,
+            dependeDe: pregunta.dependeDe
+              ? { ...pregunta.dependeDe, preguntaId: remapId(pregunta.dependeDe.preguntaId) }
+              : undefined,
+            opcionesPorValor: pregunta.opcionesPorValor
+              ? { ...pregunta.opcionesPorValor, preguntaId: remapId(pregunta.opcionesPorValor.preguntaId) }
+              : undefined,
+          };
+        });
+      })
+    : seccion.preguntas;
 
   useEffect(() => {
     setErrores({});
     setMostrarAlerta(false);
-    setMostrarRespondidas(false);
-    setPreguntaEnEdicion(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [seccion.id]);
 
@@ -88,12 +115,20 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
     }
 
     if (pregunta.tipo === 'grilla_cuantificacion') {
-      if (typeof valor !== 'object' || !valor.entidad || valor.total === '' || valor.total == null) {
-        return false;
-      }
-      const formaReporte = respuestas['37']?.valor || 'Agregada';
-      return formaReporte !== 'Desagregada por sexo' ||
-        (valor.mujeres !== '' && valor.mujeres != null && valor.hombres !== '' && valor.hombres != null);
+      if (typeof valor !== 'object' || !valor.rows || typeof valor.rows !== 'object') return false;
+      const supportSuffix = pregunta.id.match(/__apoyo_\d+$/)?.[0] ?? '';
+      const formaReporte = respuestas[`37${supportSuffix}`]?.valor || 'Agregada';
+      const enteredRows = Object.values(valor.rows as Record<string, { total?: string; hombres?: string; mujeres?: string }>)
+        .filter((row) => [row.total, row.hombres, row.mujeres].some((cell) => cell !== undefined && cell !== ''));
+      if (enteredRows.length === 0) return false;
+      return enteredRows.every((row) => formaReporte === 'Desagregada por sexo'
+        ? row.hombres !== undefined && row.hombres !== '' && row.mujeres !== undefined && row.mujeres !== ''
+        : row.total !== undefined && row.total !== '');
+    }
+
+    if (pregunta.tipo === 'tabla_cuantificacion') {
+      const rows = (valor as { rows?: Array<{ unit: string; quantity: string }> })?.rows;
+      return Boolean(rows?.length && rows.every((row) => row.unit.trim() && row.quantity !== '' && Number(row.quantity) >= 0));
     }
 
     if (pregunta.tipo === 'select') {
@@ -109,11 +144,7 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
     return Boolean(valor);
   };
 
-  const mostrarRespuestaS313 = (preguntaId: string): boolean =>
-    respuestas['clave_programa']?.valor === 'S313' && ['10', '11', '12', '13', '14', '15', '16'].includes(preguntaId);
-
-  const preguntasVisibles = seccion.preguntas.filter(isQuestionVisible);
-  const respondidas = preguntasVisibles.filter(isQuestionAnswered);
+  const preguntasVisibles = preguntasDeSeccion.filter(isQuestionVisible);
   const preguntasRequeridas = preguntasVisibles.filter((pregunta) => pregunta.requerida);
   const seccionCompleta = preguntasRequeridas.length > 0 && preguntasRequeridas.every(isQuestionAnswered);
 
@@ -123,29 +154,22 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
 
   const formatSummaryValue = (value: unknown): string => {
     if (value === null || value === undefined || value === '') return '—';
-    if (Array.isArray(value)) return value.map(String).join(', ');
+    if (Array.isArray(value)) return value.map(formatSummaryValue).join(', ');
     if (typeof value === 'object') {
+      if ('rows' in value && value.rows && typeof value.rows === 'object') {
+        const rows = Object.entries(value.rows as Record<string, { total?: string; hombres?: string; mujeres?: string }>)
+          .filter(([, row]) => [row.total, row.hombres, row.mujeres].some((cell) => cell !== undefined && cell !== ''));
+        return `${rows.length} filas capturadas`;
+      }
       return Object.entries(value).map(([key, item]) => `${key}: ${String(item ?? '—')}`).join(' · ');
     }
     return String(value);
   };
 
-  const preguntasMostradas = mostrarRespondidas
-    ? preguntasVisibles
-    : preguntasVisibles.filter((pregunta) => {
-        const esRespuestaEnEdicion = ['texto_corto', 'texto_largo', 'numero', 'grilla_cuantificacion'].includes(pregunta.tipo)
-          && preguntaEnEdicion === pregunta.id;
-        return !isQuestionAnswered(pregunta) || esRespuestaEnEdicion || mostrarRespuestaS313(pregunta.id);
-      });
+  const preguntasMostradas = preguntasVisibles;
 
   const renderQuestion = (preg: PreguntaConfig) => {
     if (!isQuestionVisible(preg)) return null;
-
-    if (!mostrarRespondidas && isQuestionAnswered(preg)) {
-      const esRespuestaEnEdicion = ['texto_corto', 'texto_largo', 'numero', 'grilla_cuantificacion'].includes(preg.tipo)
-        && preguntaEnEdicion === preg.id;
-      if (!esRespuestaEnEdicion && !mostrarRespuestaS313(preg.id)) return null;
-    }
 
     const currentResp = respuestas[preg.id];
     const valor = currentResp ? currentResp.valor : '';
@@ -156,23 +180,41 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
     return (
       <div
         key={preg.id}
-        onFocusCapture={() => {
-          if (['texto_corto', 'texto_largo', 'numero', 'grilla_cuantificacion'].includes(preg.tipo)) {
-            setPreguntaEnEdicion(preg.id);
-          }
-        }}
-        onBlurCapture={(event) => {
-          const card = event.currentTarget;
-          window.setTimeout(() => {
-            if (!card.contains(document.activeElement)) {
-              setPreguntaEnEdicion((actual) => actual === preg.id ? null : actual);
-            }
-          }, 0);
-        }}
         className={`p-4 sm:p-6 rounded-xl transition-all duration-200 border ${
           isGuindaCard ? 'glass-card-guinda' : 'glass-card'
         } ${error ? 'border-rose-500/80 ring-1 ring-rose-500/40' : 'hover:border-[#A57F2C]/50'}`}
       >
+        {currentResp?.prellenada && (
+          <div className="mb-3 space-y-3 rounded-md border-l-2 border-[#A57F2C] bg-white/70 px-3 py-2 text-xs text-black">
+            {currentResp.notaPrellenado && <p className="whitespace-pre-line leading-relaxed">{currentResp.notaPrellenado}</p>}
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label={`Confirmar respuesta precargada para ${preg.pregunta}`}>
+              <span className="font-semibold">¿Está de acuerdo con esta respuesta?</span>
+              <button
+                type="button"
+                aria-pressed={!currentResp.prefillDisagreed}
+                onClick={() => onPrefillAgreement(preg.id, false)}
+                className={`rounded-md border px-3 py-1.5 font-medium ${!currentResp.prefillDisagreed ? 'border-[#003d35] bg-[#003d35] text-white' : 'border-slate-900/20 text-black hover:bg-slate-900/5'}`}
+              >
+                De acuerdo
+              </button>
+              <button
+                type="button"
+                aria-pressed={Boolean(currentResp.prefillDisagreed)}
+                onClick={() => onPrefillAgreement(preg.id, true)}
+                className={`rounded-md border px-3 py-1.5 font-medium ${currentResp.prefillDisagreed ? 'border-[#611232] bg-[#611232] text-white' : 'border-slate-900/20 text-black hover:bg-slate-900/5'}`}
+              >
+                No, corregir
+              </button>
+              {currentResp.prefillDisagreed && <span className="font-medium">La respuesta está habilitada para edición.</span>}
+            </div>
+          </div>
+        )}
+        {preg.avisoAntes && (!preg.id.includes('__apoyo_') || preg.id.endsWith('__apoyo_0')) && (
+          <div className="mb-4 whitespace-pre-line rounded-lg border-l-4 border-[#A57F2C] bg-white/70 p-3 text-xs leading-relaxed text-black">
+            {preg.avisoAntes}
+          </div>
+        )}
+        <fieldset disabled={Boolean(currentResp?.prellenada && !currentResp.prefillDisagreed)} className="min-w-0">
         {(() => {
           switch (preg.tipo) {
             case 'texto_corto':
@@ -206,13 +248,26 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
                 />
               );
             case 'select':
+              const dynamicOptions = preg.opcionesPorValor
+                ? preg.opcionesPorValor.opciones[String(respuestas[preg.opcionesPorValor.preguntaId]?.valor ?? '')] ?? ['Seleccione una opción']
+                : preg.opciones;
               return (
                 <SelectQuestion
-                  pregunta={preg}
+                  pregunta={{ ...preg, opciones: dynamicOptions }}
                   valor={valor}
                   fuente={fuente}
                   error={error}
-                  onChange={(val, f) => onRespuestaChange(preg.id, seccion.id, preg.pregunta, val, f)}
+                  onChange={(val, f) => {
+                    onRespuestaChange(preg.id, seccion.id, preg.pregunta, val, f);
+                    const supportSuffix = preg.id.match(/__apoyo_\d+$/)?.[0] ?? '';
+                    if (preg.id === `26${supportSuffix}`) {
+                      for (const dependentId of ['27', '27.1', '28', '28.1']) {
+                        const id = `${dependentId}${supportSuffix}`;
+                        const oldAnswer = respuestas[id];
+                        if (oldAnswer) onRespuestaChange(id, seccion.id, oldAnswer.pregunta, '', oldAnswer.fuente);
+                      }
+                    }
+                  }}
                 />
               );
             case 'multiple':
@@ -230,6 +285,7 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
                   pregunta={preg}
                   valor={valor}
                   error={error}
+                  disabled={Boolean(currentResp?.prellenada && !currentResp.prefillDisagreed)}
                   onChange={(val) => onRespuestaChange(preg.id, seccion.id, preg.pregunta, val)}
                 />
               );
@@ -243,20 +299,33 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
                 />
               );
             case 'grilla_cuantificacion':
-              const formaReporte = respuestas['37']?.valor || 'Agregada';
+              const supportSuffix = preg.id.match(/__apoyo_\d+$/)?.[0] ?? '';
+              const formaReporte = respuestas[`37${supportSuffix}`]?.valor || 'Agregada';
+              const nivelGeografico = respuestas[`36${supportSuffix}`]?.valor || 'Estatal';
               return (
-                <GridQuantificationQuestion
+                <MatrixQuestion
                   pregunta={preg}
                   valor={valor}
                   formaReporte={formaReporte}
+                  nivelGeografico={nivelGeografico}
                   error={error}
                   onChange={(val) => onRespuestaChange(preg.id, seccion.id, preg.pregunta, val)}
+                />
+              );
+            case 'tabla_cuantificacion':
+              return (
+                <RepeatableQuantificationQuestion
+                  pregunta={preg}
+                  valor={valor}
+                  error={error}
+                  onChange={(value) => onRespuestaChange(preg.id, seccion.id, preg.pregunta, value)}
                 />
               );
             default:
               return null;
           }
         })()}
+        </fieldset>
       </div>
     );
   };
@@ -387,6 +456,19 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
             </dl>
             {!isSubmitted && (
               <div className="flex flex-col justify-end gap-2 border-t border-slate-900/10 pt-4 sm:flex-row">
+                {seccion.id === 'apoyos_poblacion_atendida' && supportCount < 20 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onRespuestaChange('__apoyos_count', seccion.id, 'Número de tipos de apoyo', supportCount + 1);
+                      setMostrarResumen(false);
+                    }}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#003d35] px-4 py-2.5 text-sm font-semibold text-[#003d35] transition hover:bg-[#003d35]/10"
+                  >
+                    <span aria-hidden="true">+</span>
+                    Agregar otro tipo de apoyo
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setMostrarResumen(false)}
@@ -408,20 +490,18 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
           </section>
         ) : (
           <div className="space-y-4">
-            {respondidas.length > 0 && (
+            {seccion.id === 'apoyos_poblacion_atendida' && (
               <div className="flex justify-end">
                 <button
                   type="button"
-                  onClick={() => setMostrarRespondidas((actual) => !actual)}
-                  aria-expanded={mostrarRespondidas}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#A57F2C]/40 px-3 py-1.5 text-xs font-medium text-stone-200 transition hover:bg-[#A57F2C]/15"
+                  onClick={() => onRespuestaChange('__apoyos_count', seccion.id, 'Número de tipos de apoyo', supportCount + 1)}
+                  className="inline-flex items-center gap-2 rounded-lg bg-[#003d35] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#002f2a]"
                 >
-                  {mostrarRespondidas ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                  {mostrarRespondidas ? 'Ocultar preguntas respondidas' : 'Ver preguntas respondidas'}
+                  <span aria-hidden="true">+</span>
+                  Agregar otro tipo de apoyo
                 </button>
               </div>
             )}
-
             {preguntasMostradas.map((preg) => {
               const isNewSubseccion = preg.subseccion && preg.subseccion !== lastSubseccion;
               if (preg.subseccion) lastSubseccion = preg.subseccion;

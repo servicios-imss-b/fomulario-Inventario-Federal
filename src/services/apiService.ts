@@ -16,42 +16,8 @@ export class ApiService {
   private static checkInterval: number = 10000; // 10s
 
   public static async checkConnection(): Promise<boolean> {
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      this.isApiAvailable = false;
-      return false;
-    }
-
-    const now = Date.now();
-    if (now - this.lastCheckTime < this.checkInterval) {
-      return this.isApiAvailable;
-    }
-
-    if (supabaseClient) {
-      try {
-        const { error } = await supabaseClient.rpc('verificar_supabase');
-        this.isApiAvailable = !error;
-      } catch {
-        this.isApiAvailable = false;
-      }
-      this.lastCheckTime = Date.now();
-      return this.isApiAvailable;
-    }
-
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
-      const res = await fetch(`${API_BASE}/health/`, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-      this.isApiAvailable = res.ok;
-    } catch {
-      this.isApiAvailable = false;
-    }
-
-    this.lastCheckTime = now;
+    this.isApiAvailable = typeof navigator === 'undefined' || navigator.onLine;
+    this.lastCheckTime = Date.now();
     return this.isApiAvailable;
   }
 
@@ -240,37 +206,6 @@ export class ApiService {
         folio: data?.folio || fallbackFolio,
         fecha: data?.fecha || timestamp,
       };
-    }
-
-    const online = await this.checkConnection();
-    if (!online) {
-      return {
-        success: true,
-        folio: fallbackFolio,
-        fecha: timestamp,
-      };
-    }
-
-    try {
-      const res = await fetch(`${API_BASE}/formulario/finalizar/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...payload,
-          fechaFinalizacion: timestamp,
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        return {
-          success: true,
-          folio: data.folio || fallbackFolio,
-          fecha: data.fecha || timestamp,
-        };
-      }
-    } catch (err) {
-      console.warn('Error en llamada de finalización, usando folio local garantizado', err);
     }
 
     return {

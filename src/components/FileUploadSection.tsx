@@ -17,7 +17,7 @@ interface FileUploadSectionProps {
   isOnline: boolean;
   onUpload: (archivo: ArchivoAdjunto) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
-  onSubmit: () => void;
+  onSubmit?: () => void;
 }
 
 const MAX_SIZE_BYTES = 15 * 1024 * 1024; // 15 MB
@@ -271,16 +271,18 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
         </div>
       </div>
 
-      <div className="mt-8 flex justify-end border-t border-[#A57F2C]/20 pt-6">
-        <button
-          type="button"
-          onClick={onSubmit}
-          className="w-full sm:w-auto px-8 py-3.5 rounded-xl text-xs sm:text-sm font-bold text-[#002F2A] bg-[#A57F2C] hover:bg-[#c4993a] border border-[#A57F2C] shadow-lg flex items-center justify-center gap-2 transition hover:scale-[1.02] cursor-pointer"
-        >
-          <span>ENVIAR FORMULARIO</span>
-          <Send className="w-4 h-4" />
-        </button>
-      </div>
+      {onSubmit && (
+        <div className="mt-8 flex justify-end border-t border-[#A57F2C]/20 pt-6">
+          <button
+            type="button"
+            onClick={onSubmit}
+            className="w-full sm:w-auto px-8 py-3.5 rounded-xl text-xs sm:text-sm font-bold text-[#002F2A] bg-[#A57F2C] hover:bg-[#c4993a] border border-[#A57F2C] shadow-lg flex items-center justify-center gap-2 transition hover:scale-[1.02] cursor-pointer"
+          >
+            <span>ENVIAR FORMULARIO</span>
+            <Send className="w-4 h-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 };

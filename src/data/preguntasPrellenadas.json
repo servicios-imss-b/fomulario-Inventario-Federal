@@ -1,0 +1,517 @@
+{
+  "2024": {
+    "S313": {
+      "10": {
+        "valor": "Sí",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "11": {
+        "valor": "Secretaría de Bienestar; Banco del Bienestar, Sociedad Nacional de Crédito; Tesorería de la Federación",
+        "nota": "La información proviene de la Cláusula Segunda del ACUERDO por el que se emiten las Reglas de Operación del Programa la Clínica es Nuestra.\n\nEn caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "12": {
+        "valor": "ACUERDO por el que se emiten las Reglas de Operación del Programa la Clínica es Nuestra para el Ejercicio Fiscal 2024.",
+        "nota": "Validar que la información sea correcta. \nSi no es correcta agregar la información correspondiente."
+      },
+      "13": {
+        "valor": "https://dof.gob.mx/nota_detalle_popup.php?codigo=5722565",
+        "nota": "Validar que la información sea correcta. \nSi no es correcta agregar la información correspondiente."
+      },
+      "14": {
+        "valor": "Lograr que los establecimientos de primer nivel destinados a la prestación ambulatoria de servicios de salud para las personas sin seguridad social, mejoren sus condiciones actuales mediante la rehabilitación, equipamiento, y/o  mantenimiento de la USPN por conducto del COSABI, para contribuir a incrementar la calidad en la atención que brindan.",
+        "nota": "La información corresponde al Numeral 2.1 de las Reglas de Operación 2024.\n\nEn caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "15": {
+        "valor": "Personas que no cuentan con acceso a la seguridad social en el país y que son usuarias de los servicios de salud en las Unidades de Salud de Primer Nivel (USPN)",
+        "nota": "Numerales 1 y 3.1 de las ROP 2024\n\nEn caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "16": {
+        "valor": {
+          "rows": [
+            {
+              "unit": "Número de personas si acceso a la seguridad social",
+              "quantity": ""
+            }
+          ]
+        },
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "17": {
+        "valor": "Unidades de salud programadas en el ejercicio fiscal 2024 para ser intervenidas con subsidios del Programa La Clínica Es Nuestra, de acuerdo a los numerales 3.3.1 y 3.3.2 de las presentes ROP y la suficiencia presupuestaria.",
+        "nota": "La información corresponde al Numeral 3.2 del Acuerdo\nEn caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "18": {
+        "valor": {
+          "rows": [
+            {
+              "unit": "Instituciones (o Unidades de Salud de Primer Nivel / USPN)",
+              "quantity": ""
+            }
+          ]
+        },
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "20": {
+        "valor": "Si"
+      }
+    },
+    "E001": {
+      "10": {
+        "valor": "No",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "12": {
+        "valor": "DIAGNÓSTICO  que justifica la creación del Programa Presupuestario E001\n“Atención a la Salud de Personas Sin Seguridad Social”"
+      },
+      "14": {
+        "valor": "Mejorar las condiciones de salud de la población sin seguridad social mediante la provisión de acciones comunitarias, servicios de promoción de la salud, prevención de enfermedades y de atención médica ambulatoria y hospitalaria; gratuitos, accesibles y de calidad.",
+        "nota": "La información proviene del Diagnóstico del Programa Presupuestario E001 / MIR del programa\n\nEn caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "15": {
+        "valor": "Aquellas personas sin afiliación por algún sistema de seguridad social del país (IMSS, ISSSTE federal o estatal, Fuerzas Armadas de México o Pemex), las personas afiliadas al Instituto de Salud para el Bienestar y las personas afiliadas a IMSS-BIENESTAR.",
+        "nota": "La información proviene del Diagnóstico del Programa Presupuestario E001 / MIR del programa\n\nEn caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "16": {
+        "valor": {
+          "rows": [
+            {
+              "unit": "Personas",
+              "quantity": ""
+            }
+          ]
+        },
+        "nota": "La información proviene del Diagnóstico del Programa Presupuestario E001 / MIR del programa\n\nEn caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "17": {
+        "valor": "Personas sin seguridad social que habitan en las entidades federativas de responsabilidad institucional. Es decir, en aquellas donde exista un proceso de transferencia de las unidades de salud y hospitales para la prestación de servicios al IMSS-BIENESTAR.",
+        "nota": "La información proviene del Diagnóstico del Programa Presupuestario E001 / MIR del programa\n\nEn caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "18": {
+        "valor": {
+          "rows": [
+            {
+              "unit": "Personas",
+              "quantity": ""
+            }
+          ]
+        },
+        "nota": "La información proviene del Diagnóstico del Programa Presupuestario E001 / MIR del programa\n\nEn caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "20": {
+        "valor": "Si",
+        "nota": "La información proviene del Diagnóstico del Programa Presupuestario E001 / MIR del programa\n\nEn caso de no estar de acuerdo con la información agregar la correcta."
+      }
+    },
+    "U013": {
+      "10": {
+        "valor": "Sí",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "11": {
+        "valor": "Secretaría de Salud; Entidades Federativas Concurrentes y No Concurrentes; Tesorería de la Federación",
+        "nota": "La información es conforme a los Lineamientos del U013.\n\nEn caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "12": {
+        "valor": "LINEAMIENTOS de operación del Programa Presupuestario U013 Atención a la Salud y Medicamentos Gratuitos para la Población sin\nSeguridad Social Laboral para el ejercicio fiscal 2024.",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "13": {
+        "valor": "https://dof.gob.mx/nota_detalle.php?codigo=5720233&fecha=14/03/2024#gsc.tab=0",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "14": {
+        "valor": "Establecer el marco de operación para la programación, administración y pago bajo los criterios de universalidad, objetividad, equidad, transparencia, trazabilidad y publicidad, de los recursos para la prestación gratuita de servicios de salud, medicamentos y demás insumos asociados, así como para personal, equipamiento e infraestructura, a que se refiere el Título Tercero Bis de la LGS,\nrelativos al Programa Presupuestario Atención a la Salud y Medicamentos Gratuitos para la Población sin Seguridad Social Laboral U013.",
+        "nota": "La información es conforme a los Lineamientos del U013.\n\nEn caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "15": {
+        "valor": "Personas que no cuentan con afiliación o adscripción a las instituciones de seguridad social del país (IMSS, ISSSTE federal o estatal, PEMEX, SEDENA o SEMAR) y que requieren servicios de salud"
+      },
+      "16": {
+        "valor": {
+          "rows": [
+            {
+              "unit": "Personas",
+              "quantity": ""
+            }
+          ]
+        },
+        "nota": "La información es conforme a los Lineamientos del U013.\n\nEn caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "17": {
+        "valor": "Personas sin seguridad social laboral que habitan en las entidades federativas que reciben la transferencia o aplicación de recursos del Programa U013 para el acceso gratuito, progresivo y efectivo a servicios médicos, medicamentos e insumos",
+        "nota": "La información es conforme a los Lineamientos del U013.\n\nEn caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "18": {
+        "valor": {
+          "rows": [
+            {
+              "unit": "Personas",
+              "quantity": ""
+            }
+          ]
+        },
+        "nota": "La información es conforme a los Lineamientos del U013.\n\nEn caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "20": {
+        "valor": "SI",
+        "nota": "La información es conforme a los Lineamientos del U013.\n\nEn caso de no estar de acuerdo con la información agregar la correcta."
+      }
+    },
+    "S200": {
+      "10": {
+        "valor": "Sí",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "11": {
+        "valor": "Secretaría de Salud; Servicios Estatales de Salud (SES) de las Entidades Federativas; Tesorería de la Federación",
+        "nota": "La información proviene del Acuerdo\n\nEn caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "12": {
+        "valor": "ACUERDO por el que se emiten las Reglas de Operación del Programa S200 Fortalecimiento a la Atención Médica, para el ejercicio fiscal 2024.",
+        "nota": "La información proviene del Acuerdo\n\nEn caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "13": {
+        "valor": "https://dof.gob.mx/nota_detalle.php?codigo=5713251&fecha=29/12/2023#gsc.tab=0"
+      },
+      "14": {
+        "valor": "Colaborar con las Entidades Federativas en la prestación de servicios de primer nivel de atención con el despliegue de UMM y Brigadas de Salud a personas\nsin seguridad social y que habitan en zonas con alguna de las siguientes características: \n1) localidades con 2,500 habitantes o menos, \n2) Zonas de Atención Prioritaria o \n3) que presentan dificultades de acceso geográfico a servicios de salud; para lo cual se empleará \n (i) la asignación de recursos humanos, \n (ii) la transferencia de recursos federales y UMM de diferente capacidad   resolutiva, todo ello armonizado normativa y operativamente con el Modelo de Atención de Salud para el Bienestar, que representa la base para la transformación operativa de los modelos de atención para la prestación gratuita de servicios de salud, medicamentos y demás insumos asociados para las personas sin seguridad social.",
+        "nota": "La información proviene del Acuerdo\n\nEn caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "15": {
+        "valor": "Personas que habitan en localidades con 2,500 habitantes o menos, en Zonas de Atención Prioritaria que se correspondan con el listado de la última publicación en el Diario Oficial de la Federación, que no cuenten con seguridad social y vivan a más de 15 kilómetros o 60 minutos a pie de un establecimiento de salud, susceptibles de ser atendidas a través de las UMM o Brigadas de Salud.",
+        "nota": "La información proviene del Acuerdo\n\nEn caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "16": {
+        "valor": {
+          "rows": [
+            {
+              "unit": "Personas",
+              "quantity": ""
+            }
+          ]
+        },
+        "nota": "La información proviene del Acuerdo\n\nEn caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "17": {
+        "valor": "Son aquellas personas que forman parte de la población potencial y que estén contempladas en la planeación de rutas de atención de las UMM de las Entidades Federativas.",
+        "nota": "La información proviene del Acuerdo\n\nEn caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "20": {
+        "valor": "Si",
+        "nota": "La información proviene del Acuerdo\n\nEn caso de no estar de acuerdo con la información agregar la correcta."
+      }
+    }
+  },
+  "2025": {
+    "U313": {
+      "10": {
+        "valor": "Sí",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "11": {
+        "valor": "Secretaría de Bienestar, Banco del Bienestar, Tesorería de la Federación",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "12": {
+        "valor": "Lineamientos de operación del programa La clínica es nuestra para el ejercicio fiscal 2025\n\nAVISO mediante el cual se da a conocer la publicación de los \"Lineamientos de Operación del Programa la Clínica es Nuestra para el ejercicio fiscal 2025\".",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "13": {
+        "valor": "https://imssbienestar.gob.mx/assets/doc/juridico/01_normatividad/normatividad_interna/LINEAMIENTOS%20LA%20CLINICA%20ES%20NUESTRA%202025.pdf\nhttps://dof.gob.mx/nota_detalle.php?codigo=5773755&fecha=24/11/2025#gsc.tab=0",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "14": {
+        "valor": "Mejorar las condiciones de las USPN destinadas a la prestación ambulatoria de serivicios de salud, mediante acciones de rehabilitación, equipamiento y mantenimiento por conducto de los COSABI, con el porpósito de contibuir al fortalecimiento de la calidad de la atención proporcionada a las Personas Beneficiarias.",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "15": {
+        "valor": "Personas sin acceso a servicios públicos de salud a nivel nacional (medido de forma bienal vía ENIGH)",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "17": {
+        "valor": "Las USPN beneficiadas por el PLCEN, son aquellas que cumplan con los numerales 3.3.1 y 3.3.2 o 3.3.3 de los presentes Lineamientos y que, de acuerdo con la suficiencia de recursos puedan recibir algún beneficio.\n\nInstituciones (Unidades de Salud de Primer Nivel de Atención programadas para conformar Comité y recibir subsidio)",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "20": {
+        "valor": "Si",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      }
+    },
+    "E001": {
+      "10": {
+        "valor": "No",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "12": {
+        "valor": "Matriz de Indicadores para Resultados 2025",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "14": {
+        "valor": "Contribuir a garantizar el derecho a la protección de la salud de las personas sin seguridad social.",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "15": {
+        "valor": "Personas que no cuentan con acceso a los servicios de salud ni adscripción a las instituciones públicas de seguridad social en el país",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "16": {
+        "valor": {
+          "rows": [
+            {
+              "unit": "Personas",
+              "quantity": ""
+            }
+          ]
+        },
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "17": {
+        "valor": "Personas sin seguridad social que residen en las 23 entidades federativas concurrentes adheridas a los Servicios de Salud del IMSS-BIENESTAR",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "20": {
+        "valor": "Si",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      }
+    },
+    "U013": {
+      "10": {
+        "valor": "Sí",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "11": {
+        "valor": "Secretaría de Salud; Entidades Federativas Concurrentes y No Concurrentes; Tesorería de la Federación; Fideicomiso Fondo de Salud para el Bienestar (FONSABI)",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "12": {
+        "valor": "Lineamientos de operación del programa presupuestario U013 \"Atención a la salud y medicamentos gratuitos para la población sin seguridad social laboral\" para el ejercicio fiscal 2025",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "13": {
+        "valor": "https://www.imssbienestar.gob.mx/assets/doc/juridico/01_normatividad/normatividad_interna/LINEAMIENTOS_U013_2025.pdf",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "14": {
+        "valor": "Establecer el marco de operación para la programación, administración y pago de los recursos para la prestación gratuita de servicios de salud, medicamentos y demás insumos asociados, así como para personal, equipamiento e infraestructura, a que se refiere Título Tercero Bis de la LGS, relativos al Programa Presupuestario Atención a la Salud y Medicamentos Gratuitos para la Población sin Seguridad Social Laboral U013, bajo los criterios de universalidad, objetividad, equidad, transparencia, trazabilidad y publicidad.",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "17": {
+        "valor": "Personas sin seguridad social laboral que habitan en las Entidades Federativas que reciben la transferencia o aplicación de recursos del Programa U013 para el acceso gratuito, progresivo y efectivo a servicios de salud, medicamentos e insumos",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "18": {
+        "valor": {
+          "rows": [
+            {
+              "unit": "Personas",
+              "quantity": ""
+            }
+          ]
+        },
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "20": {
+        "valor": "Si",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      }
+    },
+    "E004": {
+      "10": {
+        "valor": "No",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "12": {
+        "valor": "Matriz de Indicadores para Resultados 2025",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "14": {
+        "valor": "Personal que labora en el Centro y Hospitales Regionales de Alta Especialidad, cuentan con suficiente formación y capacitación para brindar una mejor atención en la salud a la población sin seguridad social.",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "15": {
+        "valor": "Profesionales de la salud, médicos generales y especialistas, así como personal administrativo que laboran o aspiran a integrarse a los procesos de formación y capacitación en la Red de Centros y Hospitales Regionales de Alta Especialidad.",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "16": {
+        "valor": {
+          "rows": [
+            {
+              "unit": "Personas",
+              "quantity": ""
+            }
+          ]
+        },
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "17": {
+        "valor": "Médicos residentes, profesionales de la salud y servidores públicos adscritos o aceptados en los programas de posgrado clínico, especialización no médica, maestrías, doctorados, educación continua o cursos gerenciales de los CHRAE del IMSS-BIENESTAR",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "18": {
+        "valor": {
+          "rows": [
+            {
+              "unit": "Personas",
+              "quantity": ""
+            }
+          ]
+        },
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "20": {
+        "valor": "Si",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      }
+    },
+    "S200": {
+      "10": {
+        "valor": "Sí",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "11": {
+        "valor": "Secretaría de Salud; Servicios Estatales de Salud (SES) / Gobiernos de las Entidades Federativas; Tesorería de la Federación (TESOFE)",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "12": {
+        "valor": "REGLAS de Operación del Programa S200 Fortalecimiento a la Atención Médica, para el ejercicio fiscal 2025\n\nCada CONVENIO de Colaboración para la operación del Programa S200 Fortalecimiento a la Atención Médica para el ejercicio fiscal 2025, que celebran Servicios de Salud del Instituto Mexicano del Seguro Social para el Bienestar (IMSS-BIENESTAR) y el Estado correspondiente\n\nNOTA Aclaratoria al Anexo 1, adicionado a las Reglas de Operación del Programa S200 Fortalecimiento a la Atención Médica, para el ejercicio fiscal 2025, publicadas en la edición vespertina del 28 de febrero de 2025.",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "13": {
+        "valor": "https://dof.gob.mx/nota_detalle_popup.php?codigo=5750690",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "14": {
+        "valor": "Coadyuvar con las Entidades Federativas con la prestación de servicios de primer nivel de atención, mediante la transferencia de recursos presupuestarios federales y asignación de recursos humanos, localidades con 2,500 habitantes o menos, y/o en Zonas de Atención Prioritaria y/o que presentan dificultades de acceso geográfico a servicios de salud, contribuyendo a mejorar la salud de las personas.",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "15": {
+        "valor": "Personas que no cuentan con seguridad social que habitan en localidades con 2,500 habitantes o menos, en Zonas de Atención Prioritaria o que presentan dificultades de acceso geográfico a servicios de salud (a más de 5 kilómetros o 60 minutos a pie), susceptibles de ser atendidas a través de las Unidades Médicas Móviles o Brigadas de Salud.",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "16": {
+        "valor": {
+          "rows": [
+            {
+              "unit": "Personas",
+              "quantity": ""
+            }
+          ]
+        },
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "17": {
+        "valor": "Personas sin seguridad social que cumplen con los criterios de elegibilidad establecidos en el numeral 5 de estas Reglas de Operación.",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "18": {
+        "valor": {
+          "rows": [
+            {
+              "unit": "Personas",
+              "quantity": ""
+            }
+          ]
+        }
+      },
+      "20": {
+        "valor": "Si"
+      }
+    },
+    "E006": {
+      "10": {
+        "valor": "No",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "12": {
+        "valor": "Matriz de Indicadores para Resultados 2025",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "14": {
+        "valor": "Objetivo General del Programa (Transcripción textual de la MIR E006 2025):\n\"Personal de salud, registrado en el Sistema Institucional de Investigadores de los Hospitales Regionales de Alta Especialidad, coordinados por los Servicios de Salud IMSS-BIENESTAR, genera evidencia científica y tecnológica en temas prioritarios para la salud.\"",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "15": {
+        "valor": "Profesionales de la salud, médicos y personal adscrito a los Centros y Hospitales Regionales de Alta Especialidad (CHRAE) del IMSS-BIENESTAR susceptibles de realizar investigación científica y desarrollo tecnológico en salud",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "16": {
+        "valor": {
+          "rows": [
+            {
+              "unit": "Personas",
+              "quantity": ""
+            }
+          ]
+        },
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "17": {
+        "valor": "Personal de salud y personal científico con perfil de investigador adscrito a los CHRAE del IMSS-BIENESTAR integrado o elegible para su incorporación al Sistema Institucional de Investigadores para el desarrollo de proyectos de investigación y producción científica",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "18": {
+        "valor": {
+          "rows": [
+            {
+              "unit": "Personas",
+              "quantity": ""
+            }
+          ]
+        },
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "20": {
+        "valor": "Si",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      }
+    },
+    "E003": {
+      "12": {
+        "valor": "DECRETO por el que se desincorporan por fusión el Centro y los Hospitales Regionales de Alta Especialidad que se indican con el IMSS-BIENESTAR.",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "13": {
+        "valor": "https://imssbienestar.gob.mx/assets/doc/juridico/01_normatividad/03_acuerdosylineamientos/ACUERDO_BASES_PROCESO_DESINCORPOR_FUSION_CENTRO_HRAES%20_IMSSBIENESTAR.pdf",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "14": {
+        "valor": "Coordinar a los Institutos, Hospitales de Alta Especialidad para definir los mecanismos que amplíen progresivamente la gratuidad en instancias de tercer nivel de atención para población no derechohabiente, con el fin de cumplir la estrategia prioritaria \n1.4 Mejorar la atención especializada de la población sin segurid social priorizando a grupos históricamente discriminados o en condición de vulnerabilidad; que a su vez permita lograr el objetivo prioritario \n1.- Garantizar los servicios públicos de salud a toda la población que no cuente con seguridad social y, el acceso gratuito a la atención médica y hospitalaria, así como exámenes médicos y suministro de medicamentos incluidos en el Compendio Nacional de Insumos para la Salud;",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "15": {
+        "valor": "Personas sin seguridad social en el país que padecen enfermedades de baja incidencia y alta complejidad diagnóstico-terapéutica que requieren servicios de salud de tercer nivel de atención",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "16": {
+        "valor": {
+          "rows": [
+            {
+              "unit": "Personas",
+              "quantity": ""
+            }
+          ]
+        },
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "17": {
+        "valor": "Personas sin seguridad social con padecimientos de alta complejidad atendidos o referidos a la Red de Centros y Hospitales Regionales de Alta Especialidad (CHRAE) del IMSS-BIENESTAR",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "18": {
+        "valor": {
+          "rows": [
+            {
+              "unit": "Personas",
+              "quantity": ""
+            }
+          ]
+        },
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      },
+      "20": {
+        "valor": "Si",
+        "nota": "En caso de no estar de acuerdo con la información agregar la correcta."
+      }
+    }
+  }
+}

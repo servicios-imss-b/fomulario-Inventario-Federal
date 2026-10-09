@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   ArrowRight,
-  CheckCircle2,
   FileText,
   LoaderCircle,
   MapPin,
@@ -10,14 +9,10 @@ import {
 
 interface LandingViewProps {
   onStart: () => void;
-  hasSavedData: boolean;
-  onResume?: () => void;
 }
 
 export const LandingView: React.FC<LandingViewProps> = ({
   onStart,
-  hasSavedData,
-  onResume,
 }) => {
   const [isStarting, setIsStarting] = useState(false);
 
@@ -25,12 +20,6 @@ export const LandingView: React.FC<LandingViewProps> = ({
     if (isStarting) return;
     setIsStarting(true);
     onStart();
-  };
-
-  const resumeQuestionnaire = () => {
-    if (isStarting || !onResume) return;
-    setIsStarting(true);
-    onResume();
   };
 
   return (
@@ -68,17 +57,6 @@ export const LandingView: React.FC<LandingViewProps> = ({
         </p>
 
         <div className="mt-6 flex flex-col items-center gap-3">
-          {hasSavedData && onResume && (
-            <button
-              type="button"
-              onClick={resumeQuestionnaire}
-              disabled={isStarting}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-white/40 bg-white/10 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#002f2a] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-              Continuar registro guardado
-            </button>
-          )}
           <button
             type="button"
             onClick={startQuestionnaire}
@@ -93,7 +71,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
               </>
             ) : (
               <>
-                {hasSavedData ? 'Comenzar nuevo' : 'Comenzar'}
+                Comenzar
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </>
             )}

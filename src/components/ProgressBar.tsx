@@ -32,11 +32,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
               {nombreSeccionActual}
             </span>
           </div>
-          <div className="flex items-center space-x-2">
-            <span className="font-sans text-[11px] font-semibold text-white">
-              {Math.round(porcentaje)}%
-            </span>
-          </div>
+          <span className="sr-only">Avance del formulario</span>
         </div>
 
         {/* Barra de Progreso - Sólida sin degradados */}

@@ -6,6 +6,7 @@ interface GridQuantificationProps {
   pregunta: PreguntaConfig;
   valor: any; // { forma: 'Agregada' | 'Desagregada por sexo', total: number, mujeres?: number, hombres?: number, entidad?: string, notas?: string }
   formaReporte?: string;
+  nivelGeografico?: string;
   error?: string;
   onChange: (valor: any) => void;
 }
@@ -25,6 +26,7 @@ export const GridQuantificationQuestion: React.FC<GridQuantificationProps> = ({
   pregunta,
   valor = {},
   formaReporte = 'Agregada',
+  nivelGeografico = 'Estatal',
   error,
   onChange,
 }) => {
@@ -51,6 +53,10 @@ export const GridQuantificationQuestion: React.FC<GridQuantificationProps> = ({
         <span>{pregunta.pregunta}</span>
       </div>
 
+      <p className="text-xs font-semibold text-black">
+        Base de captura seleccionada: {nivelGeografico}
+      </p>
+
       {pregunta.instruccion && (
         <p className="text-xs text-black/90 italic">{pregunta.instruccion}</p>
       )}
@@ -76,6 +82,19 @@ export const GridQuantificationQuestion: React.FC<GridQuantificationProps> = ({
             ))}
           </select>
         </div>
+
+        {nivelGeografico === 'Municipal' && (
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-black">Municipio:</label>
+            <input
+              value={current.municipio || ''}
+              onChange={(event) => updateField('municipio', event.target.value)}
+              maxLength={120}
+              placeholder="Nombre del municipio"
+              className="w-full rounded-lg glass-input px-3 py-2 text-xs text-stone-100 sm:text-sm"
+            />
+          </div>
+        )}
 
         {/* Total General */}
         <div className="space-y-1.5">

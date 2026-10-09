@@ -39,12 +39,11 @@ export function FrontValidationAccess({ onClose }: FrontValidationAccessProps) {
       </header>
 
       {isAuthenticated ? (
-        <section className="mx-auto max-w-3xl rounded-xl border border-[#A57F2C]/35 bg-[#002F2A]/85 p-6 text-white shadow-lg backdrop-blur-sm">
-          <h3 className="text-lg font-semibold">Tabla pendiente de estructura</h3>
-          <p className="mt-2 text-sm text-white/85">
-            La vista queda lista. No se consultan tablas hasta definir su estructura.
-          </p>
-        </section>
+        <iframe
+          title="Reporte de Infraestructura y Materiales Hospitalarios"
+          src={`${import.meta.env.BASE_URL}reporte-new/index.html`}
+          className="h-[calc(100vh-190px)] min-h-[680px] w-full border-0 bg-gray-50"
+        />
       ) : (
         <form
           onSubmit={handleSubmit}

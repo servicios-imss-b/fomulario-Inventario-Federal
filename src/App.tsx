@@ -37,41 +37,65 @@ import {
 import { SectionBackground } from './components/SectionBackground';
 import { ASSET_IMAGES } from './assets/images';
 import { FrontValidationAccess } from './components/FrontValidationAccess';
+import preguntasPrellenadasData from './data/preguntasPrellenadas.json';
 
 export type AppStep = 'landing' | 'section' | 'archivos' | 'success';
 
 const getCaptureScope = (programKey: string, programYear: string) =>
   programKey && programYear ? `${programKey.trim()}::${programYear.trim()}` : '';
 
-const S313_RESPUESTA_PREGUNTA_10 = 'La persona Tesorera del COSABI será la única y absoluta responsable de la recepción, custodia, administración y ejecución del subsidio ministrado para los USPN, debiendo resguardar y conservar la documentación original comprobatoria correspondiente al Expediente de Actividades. Dicha información deberá estar disponible en copia simple en la USPN para cualquier requerimiento que soliciten directamente las instancias fiscalizadoras y/o IMSS-BIENESTAR para su consulta in situ.';
-const S313_RESPUESTA_PREGUNTA_11 = 'Secretaría del Bienestar';
-const S313_RESPUESTA_PREGUNTA_7_ANTERIOR = 'Nivel Comunitario (Ejecución y Vigilancia):\nComité de La Clínica es Nuestra (COSABI)\nComité de Contraloría Social\nNivel Institucional (Normatividad y Operación):\nIMSS-BIENESTAR\nSecretaría de Bienestar / Facilitadores Autorizados (FA)\nComité Técnico del PLCEN (titular de la Dirección General de IMSS-BIENESTAR)';
-const S313_RESPUESTAS_ADICIONALES: Record<string, { seccionId: string; pregunta: string; valor: string }> = {
-  '12': {
-    seccionId: 'normatividad_objetivo',
-    pregunta: '12. ¿Cuál es el nombre del instrumento normativo que reguló la operación del programa en año reportado?',
-    valor: 'ACUERDO por el que se emiten las Reglas de Operación del Programa la Clínica es Nuestra.',
-  },
-  '13': {
-    seccionId: 'normatividad_objetivo',
-    pregunta: '13. Proporcione el enlace web oficial donde se pueda consultar o descargar el documento normativo mencionado en la pregunta anterior.',
-    valor: 'https://dof.gob.mx/nota_detalle_popup.php?codigo=5722565',
-  },
-  '14': {
-    seccionId: 'normatividad_objetivo',
-    pregunta: '14. Proporcione el Objetivo General del Programa durante año reportado.',
-    valor: 'Lograr que los establecimientos de primer nivel destinados a la prestación ambulatoria de servicios de salud para las personas sin seguridad social, mejoren sus condiciones actuales mediante la rehabilitación, equipamiento, y/o mantenimiento de la USPN por conducto del COSABI, para contribuir a incrementar la calidad en la atención que brindan.',
-  },
-  '15': {
-    seccionId: 'poblacion_potencial_objetivo',
-    pregunta: '15. ¿Cuál fue la definición de la Población Potencial del programa durante año reportado?',
-    valor: 'Las USPN comprendidas dentro del Programa IMSS-Bienestar y de IMSS-BIENESTAR, de acuerdo a los numerales 3.3.1 y 3.3.2 de las presentes ROP.\nUnidades de salud programadas en el ejercicio fiscal 2024 para ser intervenidas con subsidios del Programa La Clínica Es Nuestra, de acuerdo a los numerales 3.3.1 y 3.3.2 de las presentes ROP y la suficiencia presupuestaria.',
-  },
-  '16': {
-    seccionId: 'poblacion_potencial_objetivo',
-    pregunta: '16. Registre cada unidad de medida utilizada para cuantificar la población potencial y la cantidad correspondiente.',
-    valor: 'Número de personas sin acceso a la seguridad social',
-  },
+type PrefilledAnswer = { valor: unknown; nota?: string };
+type PrefilledAnswers = Record<string, Record<string, Record<string, PrefilledAnswer>>>;
+
+const getQuestionById = (questionId: string) =>
+  SECCIONES_CUESTIONARIO.flatMap((section) => section.preguntas).find((question) => question.id === questionId);
+
+const reconcilePrefilledAnswers = (
+  current: Record<string, RespuestaItem>,
+  programKey: string,
+  programYear: string
+) => {
+  const scope = getCaptureScope(programKey, programYear);
+  const source = preguntasPrellenadasData as PrefilledAnswers;
+  const scopedAnswers = scope ? source[programYear]?.[programKey] ?? {} : {};
+  const next = { ...current };
+
+  Object.entries(next).forEach(([questionId, answer]) => {
+    if (answer.prellenada && !answer.prefillEdited && answer.prefillScope !== scope) {
+      next[questionId] = {
+        ...answer,
+        valor: '',
+        notaPrellenado: undefined,
+        prefillScope: '',
+        prefillDisagreed: false,
+        fechaActualizacion: new Date().toISOString(),
+      };
+    }
+  });
+
+  Object.entries(scopedAnswers).forEach(([questionId, prefill]) => {
+    const existing = next[questionId];
+    if (existing && (!existing.prellenada || existing.prefillEdited)) return;
+    if (existing?.prefillScope === scope) return;
+
+    const question = getQuestionById(questionId);
+    if (!question) return;
+    next[questionId] = {
+      preguntaId: questionId,
+      seccionId: question.seccionId,
+      pregunta: question.pregunta,
+      valor: prefill.valor,
+      notaPrellenado: prefill.nota,
+      prellenada: true,
+      prefillScope: scope,
+      prefillDisagreed: false,
+      prefillEdited: false,
+      fechaActualizacion: new Date().toISOString(),
+      estado: 'guardado',
+    };
+  });
+
+  return next;
 };
 
 export default function App() {
@@ -92,7 +116,6 @@ export default function App() {
   const [claveProgramaBloqueada, setClaveProgramaBloqueada] = useState(false);
   const [isAdminView, setIsAdminView] = useState(false);
   const [archivos, setArchivos] = useState<ArchivoAdjunto[]>([]);
-  const [hasSavedData, setHasSavedData] = useState<boolean>(false);
 
   const [estadoConexion, setEstadoConexion] = useState<EstadoConexion>({
     online: typeof navigator !== 'undefined' ? navigator.onLine : true,
@@ -199,34 +222,17 @@ export default function App() {
           }
           delete respuestasGuardadas['10.1'];
           setClaveProgramaBloqueada(Boolean(respuestasGuardadas['clave_programa']?.valor));
-          if (respuestasGuardadas['clave_programa']?.valor === 'S313') {
-            if (respuestasGuardadas['7']?.valor === S313_RESPUESTA_PREGUNTA_7_ANTERIOR) {
-              const respuestaPregunta7Limpia = {
-                ...respuestasGuardadas['7'],
-                valor: '',
-                fechaActualizacion: new Date().toISOString(),
-                estado: 'guardado' as const,
-              };
-              respuestasGuardadas['7'] = respuestaPregunta7Limpia;
-              void ApiService.saveRespuesta(respuestaPregunta7Limpia);
+          const reconciledAnswers = reconcilePrefilledAnswers(
+            respuestasGuardadas,
+            String(respuestasGuardadas['clave_programa']?.valor ?? '').trim(),
+            String(respuestasGuardadas['anio_captura']?.valor ?? '').trim()
+          );
+          setRespuestas(reconciledAnswers);
+          Object.entries(reconciledAnswers).forEach(([questionId, answer]) => {
+            if (JSON.stringify(answer) !== JSON.stringify(respuestasGuardadas[questionId])) {
+              void ApiService.saveRespuesta(answer);
             }
-            Object.entries(S313_RESPUESTAS_ADICIONALES).forEach(([preguntaId, respuesta]) => {
-              if (!respuestasGuardadas[preguntaId]?.valor) {
-                const respuestaPrecargada: RespuestaItem = {
-                  preguntaId,
-                  seccionId: respuesta.seccionId,
-                  pregunta: respuesta.pregunta,
-                  valor: respuesta.valor,
-                  fechaActualizacion: new Date().toISOString(),
-                  estado: 'guardado',
-                };
-                respuestasGuardadas[preguntaId] = respuestaPrecargada;
-                void ApiService.saveRespuesta(respuestaPrecargada);
-              }
-            });
-          }
-          setRespuestas(respuestasGuardadas);
-          setHasSavedData(true);
+          });
 
           // Sincronizar datos de capturista con las preguntas 1 a 5 si existen
           if (savedResp['1']?.valor) setUsuario((u) => ({ ...u, nombre: savedResp['1'].valor }));
@@ -238,7 +244,6 @@ export default function App() {
 
         if (savedArch && savedArch.length > 0) {
           setArchivos(savedArch);
-          setHasSavedData(true);
         }
 
         if (meta) {
@@ -326,21 +331,41 @@ export default function App() {
     fuente?: string
   ) => {
     const fechaActualizacion = new Date().toISOString();
+    const previousAnswer = respuestas[preguntaId];
     const item: RespuestaItem = {
       preguntaId,
       seccionId,
       pregunta,
       valor,
       fuente,
+      ...(previousAnswer?.prellenada ? {
+        notaPrellenado: previousAnswer.notaPrellenado,
+        prellenada: true,
+        prefillScope: previousAnswer.prefillScope,
+        prefillDisagreed: previousAnswer.prefillDisagreed,
+        prefillEdited: previousAnswer.prefillEdited || previousAnswer.prefillDisagreed,
+      } : {}),
       fechaActualizacion,
       estado: 'guardado',
     };
 
     // Actualización inmediata del estado React
-    setRespuestas((prev) => ({
-      ...prev,
-      [preguntaId]: item,
-    }));
+    const updatedAnswers = { ...respuestas, [preguntaId]: item };
+    const answersToSave = preguntaId === 'clave_programa' || preguntaId === 'anio_captura'
+      ? reconcilePrefilledAnswers(
+          updatedAnswers,
+          String(updatedAnswers['clave_programa']?.valor ?? '').trim(),
+          String(updatedAnswers['anio_captura']?.valor ?? '').trim()
+        )
+      : updatedAnswers;
+    setRespuestas(answersToSave);
+    if (answersToSave !== updatedAnswers) {
+      Object.entries(answersToSave).forEach(([answerId, answer]) => {
+        if (answerId !== preguntaId && JSON.stringify(answer) !== JSON.stringify(respuestas[answerId])) {
+          void ApiService.saveRespuesta(answer);
+        }
+      });
+    }
     setEstadoGuardado('guardando');
 
     // Sincronizar automáticamente datos de usuario si corresponde a preguntas 1 a 5
@@ -379,51 +404,20 @@ export default function App() {
   };
 
   const handleClaveProgramaChange = (clave: string) => {
-    const claveActual = respuestas['clave_programa']?.valor;
     setClaveProgramaBloqueada(Boolean(clave));
     handleRespuestaChange('clave_programa', 'datos_generales', 'Clave del programa', clave);
+  };
 
-    if (clave === 'S313') {
-      if (respuestas['7']?.valor === S313_RESPUESTA_PREGUNTA_7_ANTERIOR) {
-        handleRespuestaChange('7', 'datos_generales', '7. Cargo de la persona responsable del programa durante año reportado.', '');
-      }
-      if (!respuestas['10']?.valor || ['Sí', 'No'].includes(respuestas['10'].valor)) {
-        handleRespuestaChange(
-          '10',
-          'datos_generales',
-          '10. Durante año reportado, ¿qué otras dependencias participaron como responsables en la operación del programa?',
-          S313_RESPUESTA_PREGUNTA_10
-        );
-      }
-      if (!respuestas['11']?.valor && !respuestas['10.1']?.valor) {
-        handleRespuestaChange(
-          '11',
-          'datos_generales',
-          '11. Durante año reportado, ¿qué otras dependencias participaron como responsables en la operación del programa?',
-          S313_RESPUESTA_PREGUNTA_11
-        );
-      }
-      Object.entries(S313_RESPUESTAS_ADICIONALES).forEach(([preguntaId, respuesta]) => {
-        if (!respuestas[preguntaId]?.valor) {
-          handleRespuestaChange(preguntaId, respuesta.seccionId, respuesta.pregunta, respuesta.valor);
-        }
-      });
-    } else if (claveActual === 'S313') {
-      if (respuestas['7']?.valor === S313_RESPUESTA_PREGUNTA_7_ANTERIOR) {
-        handleRespuestaChange('7', 'datos_generales', '7. Cargo de la persona responsable del programa durante año reportado.', '');
-      }
-      if (respuestas['10']?.valor === S313_RESPUESTA_PREGUNTA_10) {
-        handleRespuestaChange('10', 'datos_generales', 'Pregunta 10', '');
-      }
-      if (respuestas['11']?.valor === S313_RESPUESTA_PREGUNTA_11) {
-        handleRespuestaChange('11', 'datos_generales', 'Pregunta 11', '');
-      }
-      Object.entries(S313_RESPUESTAS_ADICIONALES).forEach(([preguntaId, respuesta]) => {
-        if (respuestas[preguntaId]?.valor === respuesta.valor) {
-          handleRespuestaChange(preguntaId, respuesta.seccionId, respuesta.pregunta, '');
-        }
-      });
-    }
+  const handlePrefillAgreement = (questionId: string, disagreed: boolean) => {
+    const existing = respuestas[questionId];
+    if (!existing?.prellenada) return;
+    const updated: RespuestaItem = {
+      ...existing,
+      prefillDisagreed: disagreed,
+      fechaActualizacion: new Date().toISOString(),
+    };
+    setRespuestas((previous) => ({ ...previous, [questionId]: updated }));
+    void ApiService.saveRespuesta(updated);
   };
 
   // 4. Carga de archivo
@@ -526,10 +520,6 @@ export default function App() {
       setStep('section');
       void saveMetaFormulario({ step: 'section', currentSectionIndex: idx, submittedSectionsByScope });
     } else {
-      if (!allSectionsSubmitted) {
-        addToast('Completa y envía las seis secciones antes de abrir Archivos.', 'info');
-        return;
-      }
       pushQuestionnaireHistory('archivos');
       setStep('archivos');
       void saveMetaFormulario({ step: 'archivos', submittedSectionsByScope });
@@ -683,7 +673,6 @@ export default function App() {
           maxSeccionAlcanzada={totalPasos - 1}
           seccionesBloqueadas={[
             ...submittedSections.map((sectionId) => SECCIONES_CUESTIONARIO.findIndex((section) => section.id === sectionId)),
-            ...(!allSectionsSubmitted ? [SECCIONES_CUESTIONARIO.length] : []),
           ]}
           onSelectSeccion={handleJumpToSection}
         />
@@ -697,9 +686,7 @@ export default function App() {
           <>
         {step === 'landing' && (
           <LandingView
-            hasSavedData={hasSavedData}
             onStart={() => beginQuestionnaire()}
-            onResume={() => beginQuestionnaire(true)}
           />
         )}
 
@@ -717,6 +704,7 @@ export default function App() {
             onAnioProgramaChange={(valor) =>
               handleRespuestaChange('anio_captura', 'datos_generales', 'Año del programa', valor)
             }
+            onPrefillAgreement={handlePrefillAgreement}
             onRespuestaChange={handleRespuestaChange}
             onSubmitSection={() => handleSubmitSection(seccionActual.id)}
           />
