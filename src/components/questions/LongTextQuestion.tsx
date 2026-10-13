@@ -22,6 +22,8 @@ export const LongTextQuestion: React.FC<LongTextQuestionProps> = ({
   const max = pregunta.maxCaracteres || 300;
   const charsUsed = (valor || '').length;
   const isAtLimit = charsUsed >= max;
+  const noExplicitResponsible = pregunta.id === '11'
+    && valor === 'El acuerdo o instrumento no establece un responsable explícito.';
 
   const [mostrarFuente, setMostrarFuente] = React.useState(Boolean(fuente));
 
@@ -71,6 +73,21 @@ export const LongTextQuestion: React.FC<LongTextQuestionProps> = ({
         </p>
       )}
 
+      {pregunta.id === '11' && (
+        <label className="flex items-start gap-2 rounded-md border border-white/15 bg-white/5 px-3 py-2.5 text-xs leading-relaxed text-stone-200">
+          <input
+            type="checkbox"
+            checked={noExplicitResponsible}
+            onChange={(event) => onChange(
+              event.target.checked ? 'El acuerdo o instrumento no establece un responsable explícito.' : '',
+              fuente,
+            )}
+            className="mt-0.5 h-4 w-4 shrink-0 accent-[#A57F2C]"
+          />
+          <span>El acuerdo o instrumento no establece un responsable explícito.</span>
+        </label>
+      )}
+
       <div className="relative">
         <textarea
           id={`preg_${pregunta.id}`}
@@ -82,7 +99,7 @@ export const LongTextQuestion: React.FC<LongTextQuestionProps> = ({
           title={readOnly ? 'Respuesta fija para la clave S313' : undefined}
           onChange={handleChange}
           placeholder={pregunta.placeholder || 'Ingrese la descripción detallada aquí (máx. 300 caracteres)...'}
-          className={`w-full px-3.5 py-2.5 rounded-lg glass-input text-sm text-stone-100 placeholder:text-stone-400 resize-y min-h-[90px] ${error ? 'border-rose-500 focus:border-rose-400 focus:ring-rose-500/20' : ''} ${readOnly ? 'read-only:cursor-not-allowed read-only:bg-black/40 read-only:text-stone-300 read-only:border-stone-500/40' : ''}`}
+          className={`w-full px-3.5 py-2.5 rounded-lg glass-input text-sm text-stone-100 placeholder:text-stone-400 resize-y min-h-[90px] ${pregunta.id === '12' ? 'min-h-[120px]' : ''} ${noExplicitResponsible ? 'read-only:cursor-not-allowed' : ''} ${error ? 'border-rose-500 focus:border-rose-400 focus:ring-rose-500/20' : ''} ${readOnly ? 'read-only:cursor-not-allowed read-only:bg-black/40 read-only:text-stone-300 read-only:border-stone-500/40' : ''}`}
         />
         <div className="mt-1 flex items-center justify-between px-1 text-[10px] text-black sm:text-[11px]">
           <span className="text-black">

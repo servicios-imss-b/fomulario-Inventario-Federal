@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight, FileSpreadsheet, Search, Upload } from 'lucide-react';
 import type { PreguntaConfig } from '../../types/form';
 
 interface GeographicRow {
@@ -34,6 +34,8 @@ export function MatrixQuestion({ pregunta, valor, nivelGeografico, formaReporte,
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [catalog, setCatalog] = useState<{ estatal: GeographicRow[]; municipal: GeographicRow[] } | null>(null);
+  const [importFeedback, setImportFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const excelInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -54,6 +56,131 @@ export function MatrixQuestion({ pregunta, valor, nivelGeografico, formaReporte,
   const pageCount = Math.max(1, Math.ceil(searchableRows.length / PAGE_SIZE));
   const pageRows = searchableRows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const matrixValues = valor?.rows ?? {};
+
+  const importExcel = async (file: File) => {
+    setImportFeedback(null);
+    if (!/\.xlsx$/i.test(file.name)) {
+      setImportFeedback({ type: 'error', message: 'Seleccione un archivo de Excel .xlsx.' });
+      return;
+    }
+
+    try {
+      const { default: readXlsxFile } = await import('read-excel-file/browser');
+      const sheets = await readXlsxFile(file);
+      const worksheetRows = sheets[0]?.data;
+      if (!Array.isArray(worksheetRows)) throw new Error('El archivo no contiene una hoja de cálculo válida.');
+      const headerValues = worksheetRows[0] ?? [];
+      const headers = headerValues.map((header) => String(header ?? ''));
+      const importedRows = worksheetRows.slice(1).map((cells) =>
+        Object.fromEntries(headers.map((header, index) => [header, cells[index] ?? '']))
+      ) as Array<Record<string, unknown>>;
+      if (importedRows.length === 0) throw new Error('La hoja de Excel no contiene filas para importar.');
+
+      const normalizeHeader = (value: unknown) => String(value ?? '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
+      const findHeader = (aliases: string[]) => headers.find((header) => aliases.includes(normalizeHeader(header)));
+      const keyHeader = findHeader(['llave', 'llavegeografica', 'identificadorgeografico', 'cvegeo']);
+      const entityCodeHeader = findHeader(['claveentidad', 'cveent', 'claveestado', 'clave']);
+      const municipalityCodeHeader = findHeader(['clavemunicipio', 'cvemun', 'municipioclave']);
+      const entityNameHeader = findHeader(['entidad', 'estado', 'entidadfederativa']);
+      const municipalityNameHeader = findHeader(['municipio', 'nombremunicipio']);
+      const totalHeader = findHeader(['total', 'cantidad', 'cuantificacion', 'poblacionatendida']);
+      const menHeader = findHeader(['hombres', 'hombresatendidos', 'masculino']);
+      const womenHeader = findHeader(['mujeres', 'mujeresatendidas', 'femenino']);
+
+      if (isMunicipal) {
+        const hasCompositeCode = Boolean(entityCodeHeader && municipalityCodeHeader);
+        const hasCompositeName = Boolean(entityNameHeader && municipalityNameHeader);
+        if (!keyHeader && !hasCompositeCode && !hasCompositeName) {
+          throw new Error('Para nivel municipal incluya Llave o las columnas Clave entidad y Clave municipio (también se aceptan sus nombres).');
+        }
+      } else if (!keyHeader && !entityCodeHeader && !entityNameHeader) {
+        throw new Error('Para nivel estatal incluya una columna Clave o Entidad.');
+      }
+
+      if (isDisaggregated && (!menHeader || !womenHeader)) {
+        throw new Error('Para la captura desagregada, Excel debe incluir las columnas Hombres y Mujeres.');
+      }
+      if (!isDisaggregated && !totalHeader) {
+        throw new Error('Para la captura agregada, Excel debe incluir una columna Total.');
+      }
+
+      const normalizeText = (value: unknown) => normalizeHeader(value);
+      const sameCode = (left: unknown, right: unknown) => {
+        const first = String(left ?? '').trim().replace(/\.0$/, '');
+        const second = String(right ?? '').trim().replace(/\.0$/, '');
+        if (!first || !second) return false;
+        if (first === second) return true;
+        return /^\d+$/.test(first) && /^\d+$/.test(second) && Number(first) === Number(second);
+      };
+      const parseQuantity = (value: unknown, rowNumber: number, columnName: string): string => {
+        const raw = String(value ?? '').trim().replace(/,/g, '');
+        const amount = Number(raw);
+        if (!raw || !Number.isFinite(amount) || amount < 0) {
+          throw new Error(`Fila ${rowNumber}: el valor de «${columnName}» debe ser un número igual o mayor que cero.`);
+        }
+        return String(amount);
+      };
+      const nextRows = { ...matrixValues };
+      let importedCount = 0;
+
+      importedRows.forEach((source, index) => {
+        const rowNumber = index + 2;
+        const rowKeyValue = keyHeader ? source[keyHeader] : '';
+        const entityCode = entityCodeHeader ? source[entityCodeHeader] : '';
+        const municipalityCode = municipalityCodeHeader ? source[municipalityCodeHeader] : '';
+        const entityName = entityNameHeader ? source[entityNameHeader] : '';
+        const municipalityName = municipalityNameHeader ? source[municipalityNameHeader] : '';
+        const rowHasValues = [rowKeyValue, entityCode, municipalityCode, entityName, municipalityName, source[totalHeader ?? ''], source[menHeader ?? ''], source[womenHeader ?? '']]
+          .some((value) => String(value ?? '').trim() !== '');
+        if (!rowHasValues) return;
+
+        const geographicRow = sourceRows.find((row) => {
+          if (!isMunicipal) {
+            return keyHeader
+              ? sameCode(row.clave, rowKeyValue)
+              : entityCodeHeader
+                ? sameCode(row.clave, entityCode)
+                : normalizeText(row.entidad) === normalizeText(entityName);
+          }
+          if (keyHeader) return sameCode(row.llave, rowKeyValue) || sameCode(row.claveMunicipio, rowKeyValue);
+          if (entityCodeHeader && municipalityCodeHeader) {
+            return sameCode(row.clave, entityCode) && sameCode(row.claveMunicipio, municipalityCode);
+          }
+          return normalizeText(row.entidad) === normalizeText(entityName)
+            && normalizeText(row.municipio) === normalizeText(municipalityName);
+        });
+        if (!geographicRow) throw new Error(`Fila ${rowNumber}: no se encontró la clave o localidad en el catálogo seleccionado.`);
+
+        const matrixKey = geographicRow.llave ?? geographicRow.clave;
+        const nextValue: MatrixRowValue = { ...nextRows[matrixKey] };
+        if (isDisaggregated) {
+          nextValue.hombres = parseQuantity(source[menHeader!], rowNumber, menHeader!);
+          nextValue.mujeres = parseQuantity(source[womenHeader!], rowNumber, womenHeader!);
+          nextValue.total = String(Number(nextValue.hombres) + Number(nextValue.mujeres));
+        } else {
+          nextValue.total = parseQuantity(source[totalHeader!], rowNumber, totalHeader!);
+        }
+        nextRows[matrixKey] = nextValue;
+        importedCount++;
+      });
+
+      if (importedCount === 0) throw new Error('No se encontraron filas válidas para importar.');
+      onChange({ rows: nextRows });
+      setPage(0);
+      setImportFeedback({ type: 'success', message: `Se importaron ${importedCount} registros. Puedes revisarlos y editarlos en la tabla.` });
+    } catch (importError) {
+      setImportFeedback({
+        type: 'error',
+        message: importError instanceof Error ? importError.message : 'No se pudo leer el archivo de Excel.',
+      });
+    } finally {
+      if (excelInputRef.current) excelInputRef.current.value = '';
+    }
+  };
 
   const updateValue = (row: GeographicRow, field: keyof MatrixRowValue, fieldValue: string) => {
     const rowKey = row.llave ?? row.clave;
@@ -91,6 +218,39 @@ export function MatrixQuestion({ pregunta, valor, nivelGeografico, formaReporte,
           />
         </label>
       </div>
+
+      {sourceRows.length > PAGE_SIZE && (
+        <div className="flex flex-wrap items-center gap-3 rounded-md border border-white/10 bg-white/5 px-3 py-2.5">
+          <input
+            ref={excelInputRef}
+            type="file"
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            className="sr-only"
+            aria-label="Importar cuantificaciones desde Excel"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void importExcel(file);
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => excelInputRef.current?.click()}
+            className="inline-flex min-h-9 items-center gap-2 rounded-md border border-[#A57F2C]/50 bg-[#002f2a] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#005247] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d5b66a]"
+          >
+            <FileSpreadsheet className="h-4 w-4 text-[#e2bd68]" />
+            Cargar más de 30 registros desde Excel
+            <Upload className="h-3.5 w-3.5" />
+          </button>
+          <p className="text-[11px] leading-relaxed text-stone-300">
+            Excel .xlsx: incluya Llave o Clave entidad + Clave municipio; agregue Total o Hombres y Mujeres.
+          </p>
+        </div>
+      )}
+      {importFeedback && (
+        <p role={importFeedback.type === 'error' ? 'alert' : 'status'} className={`text-xs font-medium ${importFeedback.type === 'error' ? 'text-rose-300' : 'text-emerald-300'}`}>
+          {importFeedback.message}
+        </p>
+      )}
 
       {!catalog && <p className="text-xs text-slate-600">Cargando catálogo geográfico…</p>}
 

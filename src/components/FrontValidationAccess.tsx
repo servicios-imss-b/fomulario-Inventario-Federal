@@ -41,7 +41,7 @@ export function FrontValidationAccess({ onClose }: FrontValidationAccessProps) {
       {isAuthenticated ? (
         <iframe
           title="Reporte de Infraestructura y Materiales Hospitalarios"
-          src={`${import.meta.env.BASE_URL}reporte-new/index.html`}
+          src={`${import.meta.env.BASE_URL}new-form-report/index.html`}
           className="h-[calc(100vh-190px)] min-h-[680px] w-full border-0 bg-gray-50"
         />
       ) : (

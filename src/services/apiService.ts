@@ -107,19 +107,15 @@ export class ApiService {
     }
   }
 
-  public static async uploadArchivo(archivo: ArchivoAdjunto): Promise<{ synced: boolean; error?: string }> {
-    if (supabaseClient) {
-      await saveArchivoLocal({ ...archivo, estado: 'pendiente_sync' });
-      return { synced: false, error: 'El archivo queda guardado localmente; Supabase recibirá sus metadatos al finalizar.' };
-    }
-
-    await saveArchivoLocal(archivo);
+  public static async uploadArchivo(archivo: ArchivoAdjunto): Promise<{ synced: boolean; error?: string; archivo?: ArchivoAdjunto }> {
+    const pendingFile = { ...archivo, estado: 'pendiente_sync' as const };
+    await saveArchivoLocal(pendingFile);
 
     const online = await this.checkConnection();
     if (!online) {
       await enqueueSync({
         tipo: 'archivo',
-        payload: archivo,
+        payload: pendingFile,
         fecha: new Date().toISOString(),
       });
       return { synced: false };
@@ -132,25 +128,29 @@ export class ApiService {
         body: JSON.stringify(archivo),
       });
 
+      const responseBody = await res.json().catch(() => ({}));
       if (res.ok) {
-        const syncedArch: ArchivoAdjunto = { ...archivo, estado: 'sincronizado' };
+        const syncedArch: ArchivoAdjunto = {
+          ...archivo,
+          ...responseBody.data,
+          estado: 'sincronizado',
+          dataBase64: undefined,
+        };
         await saveArchivoLocal(syncedArch);
-        return { synced: true };
+        return { synced: true, archivo: syncedArch };
       }
-      throw new Error('Error al registrar archivo');
-    } catch {
+      throw new Error(responseBody.error || 'No se pudo guardar el archivo en Google Drive.');
+    } catch (error) {
       await enqueueSync({
         tipo: 'archivo',
-        payload: archivo,
+        payload: pendingFile,
         fecha: new Date().toISOString(),
       });
-      return { synced: false, error: 'Archivo conservado localmente.' };
+      return { synced: false, error: error instanceof Error ? error.message : 'Archivo conservado localmente.' };
     }
   }
 
   public static async syncPendingQueue(): Promise<number> {
-    if (supabaseClient) return 0;
-
     const online = await this.checkConnection();
     if (!online) return 0;
 
@@ -165,8 +165,20 @@ export class ApiService {
         body: JSON.stringify({ items: queue }),
       });
 
-      if (res.ok) {
+      const responseBody = await res.json().catch(() => ({}));
+      if (res.ok && Array.isArray(responseBody.resultados)) {
         for (const item of queue) {
+          const result = responseBody.resultados.find((entry: { id: number; success: boolean }) => entry.id === item.id);
+          if (!result?.success) continue;
+
+          if (item.tipo === 'archivo' && result.data) {
+            await saveArchivoLocal({
+              ...item.payload,
+              ...result.data,
+              estado: 'sincronizado',
+              dataBase64: undefined,
+            });
+          }
           await removeSyncItem(item.id);
           syncedCount++;
         }
@@ -188,9 +200,13 @@ export class ApiService {
 
     if (supabaseClient) {
       const archivosMetadata = payload.archivos.map(({ dataBase64: _dataBase64, ...archivo }) => archivo);
+      const respuestasGuardadas = Object.fromEntries(
+        Object.entries(payload.respuestas).map(([id, respuesta]) => [id, { ...respuesta, estado: 'guardado' as const }]),
+      );
       const { data, error } = await supabaseClient.rpc('registrar_formulario', {
         p_payload: {
           ...payload,
+          respuestas: respuestasGuardadas,
           archivos: archivosMetadata,
           folio: fallbackFolio,
           fechaFinalizacion: timestamp,

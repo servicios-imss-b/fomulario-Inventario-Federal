@@ -4,6 +4,7 @@ import type { PreguntaConfig } from '../../types/form';
 interface QuantificationRow {
   unit: string;
   quantity: string;
+  justification?: string;
 }
 
 interface RepeatableQuantificationValue {
@@ -14,10 +15,11 @@ interface RepeatableQuantificationQuestionProps {
   pregunta: PreguntaConfig;
   valor: RepeatableQuantificationValue | null;
   error?: string;
+  lockedPrefilledUnitRows?: number;
   onChange: (value: RepeatableQuantificationValue) => void;
 }
 
-export function RepeatableQuantificationQuestion({ pregunta, valor, error, onChange }: RepeatableQuantificationQuestionProps) {
+export function RepeatableQuantificationQuestion({ pregunta, valor, error, lockedPrefilledUnitRows = 0, onChange }: RepeatableQuantificationQuestionProps) {
   const rows = valor?.rows?.length ? valor.rows : [{ unit: '', quantity: '' }];
   const questionNumber = pregunta.id === '18' ? '18' : '16';
 
@@ -48,10 +50,11 @@ export function RepeatableQuantificationQuestion({ pregunta, valor, error, onCha
                   <input
                     aria-label={`Unidad de medida, fila ${index + 1}`}
                     value={row.unit}
+                    readOnly={index < lockedPrefilledUnitRows}
                     onChange={(event) => updateRow(index, 'unit', event.target.value)}
                     maxLength={300}
                     placeholder="Personas, hogares, instituciones..."
-                    className="w-full rounded-md border border-white/15 bg-[#041a17] px-3 py-2 text-sm text-white placeholder:text-stone-400"
+                    className="w-full rounded-md border border-white/15 bg-[#041a17] px-3 py-2 text-sm text-white placeholder:text-stone-400 read-only:cursor-not-allowed read-only:opacity-75"
                   />
                 </td>
                 <td className="p-2">
@@ -64,6 +67,16 @@ export function RepeatableQuantificationQuestion({ pregunta, valor, error, onCha
                     placeholder="0"
                     className="w-full rounded-md border border-white/15 bg-[#041a17] px-3 py-2 text-sm text-white placeholder:text-stone-400"
                   />
+                  {pregunta.id === '18' && row.quantity !== '' && Number(row.quantity) === 0 && (
+                    <input
+                      aria-label={`Justificación para cuantificación cero, fila ${index + 1}`}
+                      value={row.justification ?? ''}
+                      onChange={(event) => updateRow(index, 'justification', event.target.value)}
+                      maxLength={500}
+                      placeholder="Justifique por qué la población objetivo es cero (obligatorio)"
+                      className="mt-2 w-full rounded-md border border-amber-400/50 bg-[#041a17] px-3 py-2 text-sm text-white placeholder:text-amber-100/70"
+                    />
+                  )}
                 </td>
                 <td className="p-2 text-center">
                   <button

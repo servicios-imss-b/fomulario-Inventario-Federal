@@ -64,7 +64,9 @@ export interface RespuestaItem {
   prellenada?: boolean;
   prefillScope?: string;
   prefillDisagreed?: boolean;
+  prefillConfirmed?: boolean;
   prefillEdited?: boolean;
+  correoPersonalPorBaja?: boolean;
   fechaActualizacion: string;
   estado: 'guardado' | 'pendiente_sync' | 'error';
 }
@@ -79,6 +81,8 @@ export interface ArchivoAdjunto {
   fechaCarga: string;
   estado: 'sincronizado' | 'pendiente_sync' | 'error';
   url?: string;
+  driveFileId?: string;
+  proveedorAlmacenamiento?: 'google_drive';
   dataBase64?: string;
 }
 

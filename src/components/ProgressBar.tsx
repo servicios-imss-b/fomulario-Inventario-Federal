@@ -8,6 +8,7 @@ interface ProgressBarProps {
   onSelectSeccion?: (index: number) => void;
   maxSeccionAlcanzada?: number;
   seccionesBloqueadas?: number[];
+  seccionesCompletadas?: number[];
 }
 
 export const ProgressBar: React.FC<ProgressBarProps> = ({
@@ -18,6 +19,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   onSelectSeccion,
   maxSeccionAlcanzada = 0,
   seccionesBloqueadas = [],
+  seccionesCompletadas = [],
 }) => {
   return (
     <div className="w-full px-3 py-1.5 sm:px-4 sm:py-2 backdrop-blur-md z-30 sticky top-[68px]">
@@ -47,8 +49,8 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
         <div className="hidden sm:flex items-center justify-between pt-0.5">
           {Array.from({ length: totalSecciones }).map((_, idx) => {
             const isCurrent = idx === seccionActualIndex;
-            const isCompleted = idx < seccionActualIndex;
-            const isAccessible = idx <= maxSeccionAlcanzada && !seccionesBloqueadas.includes(idx);
+            const isCompleted = seccionesCompletadas.includes(idx);
+            const isAccessible = (idx === seccionActualIndex || idx <= maxSeccionAlcanzada) && !seccionesBloqueadas.includes(idx);
 
             return (
               <button

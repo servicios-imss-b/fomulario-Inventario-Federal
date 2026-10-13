@@ -10,28 +10,35 @@ import { DateQuestion } from './questions/DateQuestion';
 import { MatrixQuestion } from './questions/MatrixQuestion';
 import { RepeatableQuantificationQuestion } from './questions/RepeatableQuantificationQuestion';
 import {
+  ArrowLeft,
+  ArrowRight,
   AlertCircle,
   Activity,
+  CheckCircle2,
+  Clock3,
   Layers,
-  Lock,
+  LoaderCircle,
   Pencil,
-  Send,
-  Unlock,
+  RotateCcw,
 } from 'lucide-react';
+
+const CONTACT_EMAIL_QUESTION_IDS = new Set(['3', '9']);
+const PHONE_QUESTION_IDS = new Set(['4', '8']);
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const INSTITUTIONAL_EMAIL_PATTERN = /^[^\s@]+@imssbienestar\.gob\.mx$/i;
 
 interface FormSectionViewProps {
   seccion: SeccionConfig;
   respuestas: Record<string, RespuestaItem>;
   clavePrograma: string;
   anioPrograma: string;
-  claveBloqueada: boolean;
-  isSubmitted: boolean;
-  onToggleClaveBloqueada: () => void;
   onClaveProgramaChange: (valor: string) => void;
   onAnioProgramaChange: (valor: string) => void;
+  onResetProgramSelection: () => void;
+  onSaveAndNext: (sectionComplete: boolean) => Promise<void>;
+  onPreviousSection: () => void;
   onPrefillAgreement: (preguntaId: string, disagreed: boolean) => void;
-  onRespuestaChange: (preguntaId: string, seccionId: string, pregunta: string, valor: any, fuente?: string) => void;
-  onSubmitSection: () => void;
+  onRespuestaChange: (preguntaId: string, seccionId: string, pregunta: string, valor: any, fuente?: string, correoPersonalPorBaja?: boolean) => void;
 }
 
 export const FormSectionView: React.FC<FormSectionViewProps> = ({
@@ -39,20 +46,20 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
   respuestas,
   clavePrograma,
   anioPrograma,
-  claveBloqueada,
-  isSubmitted,
-  onToggleClaveBloqueada,
   onClaveProgramaChange,
   onAnioProgramaChange,
+  onResetProgramSelection,
+  onSaveAndNext,
+  onPreviousSection,
   onPrefillAgreement,
   onRespuestaChange,
-  onSubmitSection,
 }) => {
   const [errores, setErrores] = useState<Record<string, string>>({});
   const [mostrarAlerta, setMostrarAlerta] = useState(false);
   const [mostrarResumen, setMostrarResumen] = useState(false);
+  const [guardandoSiguiente, setGuardandoSiguiente] = useState(false);
   const supportCount = seccion.id === 'apoyos_poblacion_atendida'
-    ? Math.min(20, Math.max(1, Number(respuestas['__apoyos_count']?.valor ?? 1)))
+    ? Math.min(30, Math.max(1, Number(respuestas['__apoyos_count']?.valor ?? 1)))
     : 1;
 
   const preguntasDeSeccion = seccion.id === 'apoyos_poblacion_atendida'
@@ -107,8 +114,21 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
   };
 
   const isQuestionAnswered = (pregunta: PreguntaConfig): boolean => {
-    const valor = respuestas[pregunta.id]?.valor;
+    const respuesta = respuestas[pregunta.id];
+    if (respuesta?.prellenada && !respuesta.prefillConfirmed) return false;
+
+    const valor = respuesta?.valor;
     if (valor === undefined || valor === null || valor === '') return false;
+
+    if (CONTACT_EMAIL_QUESTION_IDS.has(pregunta.id)) {
+      const email = String(valor).trim();
+      return EMAIL_PATTERN.test(email) && (
+        INSTITUTIONAL_EMAIL_PATTERN.test(email) || Boolean(respuesta?.correoPersonalPorBaja)
+      );
+    }
+    if (PHONE_QUESTION_IDS.has(pregunta.id)) {
+      return String(valor).replace(/\D/g, '').length >= 10;
+    }
 
     if (pregunta.tipo === 'multiple') {
       return Array.isArray(valor) && valor.length > 0;
@@ -127,8 +147,13 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
     }
 
     if (pregunta.tipo === 'tabla_cuantificacion') {
-      const rows = (valor as { rows?: Array<{ unit: string; quantity: string }> })?.rows;
-      return Boolean(rows?.length && rows.every((row) => row.unit.trim() && row.quantity !== '' && Number(row.quantity) >= 0));
+      const rows = (valor as { rows?: Array<{ unit: string; quantity: string; justification?: string }> })?.rows;
+      return Boolean(rows?.length && rows.every((row) =>
+        row.unit.trim()
+        && row.quantity !== ''
+        && Number(row.quantity) >= 0
+        && (pregunta.id !== '18' || Number(row.quantity) !== 0 || Boolean(row.justification?.trim()))
+      ));
     }
 
     if (pregunta.tipo === 'select') {
@@ -144,13 +169,64 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
     return Boolean(valor);
   };
 
+  const getQuestionValidationMessage = (pregunta: PreguntaConfig): string => {
+    const respuesta = respuestas[pregunta.id];
+    if (respuesta?.prellenada && !respuesta.prefillConfirmed) {
+      return 'Confirma la respuesta prellenada o elige «No, corregir» y registra la corrección.';
+    }
+
+    if (CONTACT_EMAIL_QUESTION_IDS.has(pregunta.id)) {
+      const email = String(respuesta?.valor ?? '').trim();
+      if (!email) return 'Esta pregunta es obligatoria.';
+      if (!EMAIL_PATTERN.test(email)) return 'Ingresa un correo electrónico válido.';
+      if (!INSTITUTIONAL_EMAIL_PATTERN.test(email) && !respuesta?.correoPersonalPorBaja) {
+        return 'Usa @imssbienestar.gob.mx o marca la excepción por baja institucional.';
+      }
+    }
+    if (PHONE_QUESTION_IDS.has(pregunta.id)) {
+      const digitCount = String(respuesta?.valor ?? '').replace(/\D/g, '').length;
+      if (digitCount < 10) return 'Capture al menos 10 dígitos, incluida la clave LADA.';
+    }
+    if (pregunta.id === '18') {
+      const rows = (respuesta?.valor as { rows?: Array<{ quantity: string; justification?: string }> } | undefined)?.rows ?? [];
+      if (rows.some((row) => row.quantity !== '' && Number(row.quantity) === 0 && !row.justification?.trim())) {
+        return 'Justifique por qué la cuantificación de la población objetivo es cero.';
+      }
+    }
+
+    return 'Esta pregunta es obligatoria.';
+  };
+
   const preguntasVisibles = preguntasDeSeccion.filter(isQuestionVisible);
   const preguntasRequeridas = preguntasVisibles.filter((pregunta) => pregunta.requerida);
   const seccionCompleta = preguntasRequeridas.length > 0 && preguntasRequeridas.every(isQuestionAnswered);
 
   useEffect(() => {
-    setMostrarResumen(isSubmitted || seccionCompleta);
-  }, [seccion.id, isSubmitted, seccionCompleta]);
+    setMostrarResumen(seccionCompleta);
+    if (seccionCompleta) {
+      setErrores({});
+      setMostrarAlerta(false);
+    }
+  }, [seccion.id, seccionCompleta]);
+
+  const guardarYSiguiente = async () => {
+    if (guardandoSiguiente) return;
+    const preguntasFaltantes = preguntasRequeridas.filter((pregunta) => !isQuestionAnswered(pregunta));
+    if (preguntasFaltantes.length > 0) {
+      setErrores(Object.fromEntries(preguntasFaltantes.map((pregunta) => [pregunta.id, getQuestionValidationMessage(pregunta)])));
+      setMostrarAlerta(true);
+      return;
+    }
+
+    setErrores({});
+    setMostrarAlerta(false);
+    setGuardandoSiguiente(true);
+    try {
+      await onSaveAndNext(seccionCompleta);
+    } finally {
+      setGuardandoSiguiente(false);
+    }
+  };
 
   const formatSummaryValue = (value: unknown): string => {
     if (value === null || value === undefined || value === '') return '—';
@@ -174,7 +250,22 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
     const currentResp = respuestas[preg.id];
     const valor = currentResp ? currentResp.valor : '';
     const fuente = currentResp ? currentResp.fuente : '';
-    const error = errores[preg.id];
+    const isContactEmail = CONTACT_EMAIL_QUESTION_IDS.has(preg.id);
+    const isContactPhone = PHONE_QUESTION_IDS.has(preg.id);
+    const emailValue = typeof valor === 'string' ? valor.trim() : '';
+    const formatError = isContactEmail && emailValue
+      ? !EMAIL_PATTERN.test(emailValue)
+        ? 'Ingresa un correo electrónico válido.'
+        : !INSTITUTIONAL_EMAIL_PATTERN.test(emailValue) && !currentResp?.correoPersonalPorBaja
+          ? 'Usa @imssbienestar.gob.mx o marca la excepción por baja institucional.'
+          : undefined
+      : undefined;
+    const phoneDigitCount = String(valor ?? '').replace(/\D/g, '').length;
+    const phoneError = isContactPhone && phoneDigitCount > 0 && phoneDigitCount < 10
+      ? 'Capture al menos 10 dígitos, incluida la clave LADA.'
+      : undefined;
+    const error = formatError ?? phoneError ?? (isQuestionAnswered(preg) ? undefined : errores[preg.id]);
+    const prefillConfirmed = Boolean(currentResp?.prefillConfirmed);
     const isGuindaCard = preg.id === '20' || preg.id === '24' || preg.id === '30' || preg.id === '35';
 
     return (
@@ -185,15 +276,15 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
         } ${error ? 'border-rose-500/80 ring-1 ring-rose-500/40' : 'hover:border-[#A57F2C]/50'}`}
       >
         {currentResp?.prellenada && (
-          <div className="mb-3 space-y-3 rounded-md border-l-2 border-[#A57F2C] bg-white/70 px-3 py-2 text-xs text-black">
+          <div className="light-question-note mb-3 space-y-3 rounded-md border-l-2 border-[#A57F2C] bg-white/70 px-3 py-2 text-xs text-black">
             {currentResp.notaPrellenado && <p className="whitespace-pre-line leading-relaxed">{currentResp.notaPrellenado}</p>}
             <div className="flex flex-wrap items-center gap-2" role="group" aria-label={`Confirmar respuesta precargada para ${preg.pregunta}`}>
               <span className="font-semibold">¿Está de acuerdo con esta respuesta?</span>
               <button
                 type="button"
-                aria-pressed={!currentResp.prefillDisagreed}
+                aria-pressed={prefillConfirmed && !currentResp.prefillDisagreed}
                 onClick={() => onPrefillAgreement(preg.id, false)}
-                className={`rounded-md border px-3 py-1.5 font-medium ${!currentResp.prefillDisagreed ? 'border-[#003d35] bg-[#003d35] text-white' : 'border-slate-900/20 text-black hover:bg-slate-900/5'}`}
+                className={`rounded-md border px-3 py-1.5 font-medium transition-colors ${prefillConfirmed && !currentResp.prefillDisagreed ? 'border-emerald-700 bg-emerald-800 text-white' : 'border-slate-900/20 bg-white text-slate-800 hover:bg-emerald-50'}`}
               >
                 De acuerdo
               </button>
@@ -201,20 +292,32 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
                 type="button"
                 aria-pressed={Boolean(currentResp.prefillDisagreed)}
                 onClick={() => onPrefillAgreement(preg.id, true)}
-                className={`rounded-md border px-3 py-1.5 font-medium ${currentResp.prefillDisagreed ? 'border-[#611232] bg-[#611232] text-white' : 'border-slate-900/20 text-black hover:bg-slate-900/5'}`}
+                className={`rounded-md border px-3 py-1.5 font-medium transition-colors ${currentResp.prefillDisagreed ? 'border-[#611232] bg-[#611232] text-white' : 'border-slate-900/20 bg-white text-slate-800 hover:bg-rose-50'}`}
               >
                 No, corregir
               </button>
-              {currentResp.prefillDisagreed && <span className="font-medium">La respuesta está habilitada para edición.</span>}
+              {prefillConfirmed ? (
+                <span className="flex items-center gap-1 font-semibold text-emerald-800" role="status">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  {currentResp.prefillDisagreed ? 'Corrección validada' : 'Respuesta validada'}
+                </span>
+              ) : currentResp.prefillDisagreed ? (
+                <span className="font-medium text-[#611232]">Edita la respuesta para confirmar la corrección.</span>
+              ) : (
+                <span className="flex items-center gap-1 font-medium text-amber-800" role="status">
+                  <Clock3 className="h-3.5 w-3.5" />
+                  Pendiente de validar
+                </span>
+              )}
             </div>
           </div>
         )}
         {preg.avisoAntes && (!preg.id.includes('__apoyo_') || preg.id.endsWith('__apoyo_0')) && (
-          <div className="mb-4 whitespace-pre-line rounded-lg border-l-4 border-[#A57F2C] bg-white/70 p-3 text-xs leading-relaxed text-black">
+          <div className="light-question-note mb-4 whitespace-pre-line rounded-lg border-l-4 border-[#A57F2C] bg-white/70 p-3 text-xs leading-relaxed text-black">
             {preg.avisoAntes}
           </div>
         )}
-        <fieldset disabled={Boolean(currentResp?.prellenada && !currentResp.prefillDisagreed)} className="min-w-0">
+        <fieldset disabled={Boolean(currentResp?.prellenada && !currentResp.prefillDisagreed) && preg.tipo !== 'tabla_cuantificacion'} className="min-w-0">
         {(() => {
           switch (preg.tipo) {
             case 'texto_corto':
@@ -223,8 +326,9 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
                   pregunta={preg}
                   valor={valor}
                   fuente={fuente}
+                  correoPersonalPorBaja={Boolean(currentResp?.correoPersonalPorBaja)}
                   error={error}
-                  onChange={(val, f) => onRespuestaChange(preg.id, seccion.id, preg.pregunta, val, f)}
+                  onChange={(val, f, personalPorBaja) => onRespuestaChange(preg.id, seccion.id, preg.pregunta, val, f, personalPorBaja)}
                 />
               );
             case 'texto_largo':
@@ -251,10 +355,15 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
               const dynamicOptions = preg.opcionesPorValor
                 ? preg.opcionesPorValor.opciones[String(respuestas[preg.opcionesPorValor.preguntaId]?.valor ?? '')] ?? ['Seleccione una opción']
                 : preg.opciones;
+              const baseQuestionId = preg.id.replace(/__apoyo_\d+$/, '');
+              const mirLevelFour = dynamicOptions?.find((option) => option.startsWith('4. '));
+              const selectedValue = baseQuestionId === '31' && String(valor).trim() === '4'
+                ? mirLevelFour ?? '4. Proyectos de mejora de las Unidades de Salud de Primer Nivel de Atención concluidos'
+                : valor;
               return (
                 <SelectQuestion
                   pregunta={{ ...preg, opciones: dynamicOptions }}
-                  valor={valor}
+                  valor={selectedValue}
                   fuente={fuente}
                   error={error}
                   onChange={(val, f) => {
@@ -318,6 +427,9 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
                   pregunta={preg}
                   valor={valor}
                   error={error}
+                  lockedPrefilledUnitRows={currentResp?.prellenada && !currentResp.prefillDisagreed
+                    ? (valor as { rows?: unknown[] } | undefined)?.rows?.length ?? 0
+                    : 0}
                   onChange={(value) => onRespuestaChange(preg.id, seccion.id, preg.pregunta, value)}
                 />
               );
@@ -336,57 +448,73 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
     <div className="relative min-h-[calc(100vh-8rem)] py-6 sm:py-8 px-4 sm:px-6 max-w-4xl mx-auto flex flex-col justify-between z-10">
       <div className="space-y-6">
         <div className="glass-form-surface rounded-2xl border border-slate-900/15 p-4 shadow-xl sm:p-5">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <label htmlFor="clave-programa" className="block text-sm font-semibold text-black">
-              Clave del programa
-            </label>
-            {clavePrograma && (
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-semibold text-black">Selección del programa</p>
+              <p className="mt-0.5 text-xs text-slate-600">
+                Clave y ejercicio fiscal fijos durante toda la captura.
+              </p>
+            </div>
+            {(clavePrograma || anioPrograma) && (
               <button
                 type="button"
-                onClick={onToggleClaveBloqueada}
-                aria-pressed={!claveBloqueada}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-slate-900/20 px-2.5 py-1.5 text-xs font-medium text-black transition hover:bg-[#A57F2A]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A57F2C]"
-                title={claveBloqueada ? 'Desbloquear la clave para cambiarla' : 'Bloquear la clave actual'}
+                onClick={onResetProgramSelection}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-slate-900/20 px-2.5 py-1.5 text-xs font-medium text-black transition hover:bg-[#A57F2C]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A57F2C]"
+                title="Reiniciar la clave y el año; se borrarán respuestas y archivos del programa"
               >
-                {claveBloqueada ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
-                {claveBloqueada ? 'Desbloquear clave' : 'Bloquear clave'}
+                <RotateCcw className="h-3.5 w-3.5" />
+                Restablecer selección
               </button>
             )}
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <label htmlFor="clave-programa" className="mb-1.5 block text-xs font-medium text-black">
-                Clave del programa
-              </label>
-              <select
-                id="clave-programa"
-                value={clavePrograma}
-                disabled={claveBloqueada && Boolean(clavePrograma)}
-                onChange={(event) => onClaveProgramaChange(event.target.value)}
-                className="animated-select w-full rounded-lg border border-[#A57F2C]/50 bg-[#002F2A] px-3 py-2.5 text-sm text-white outline-none transition focus:border-[#A57F2C] focus:ring-2 focus:ring-[#A57F2C]/30 disabled:cursor-not-allowed"
-              >
-                <option value="">Selecciona una clave</option>
-                {['S313', 'E001', 'U013', 'S200', 'U313', 'E003', 'E004', 'E006'].map((clave) => (
-                  <option key={clave} value={clave}>{clave}</option>
-                ))}
-              </select>
+          {seccion.numero === 1 ? (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label htmlFor="clave-programa" className="mb-1.5 block text-xs font-medium text-black">
+                  Clave del programa
+                </label>
+                <select
+                  id="clave-programa"
+                  value={clavePrograma}
+                  disabled={Boolean(clavePrograma)}
+                  onChange={(event) => onClaveProgramaChange(event.target.value)}
+                  className="animated-select w-full rounded-lg border border-[#A57F2C]/50 bg-[#002F2A] px-3 py-2.5 text-sm text-white outline-none transition focus:border-[#A57F2C] focus:ring-2 focus:ring-[#A57F2C]/30 disabled:cursor-not-allowed disabled:opacity-80"
+                >
+                  <option value="">Selecciona una clave</option>
+                  {['S313', 'E001', 'U013', 'S200', 'U313', 'E003', 'E004', 'E006'].map((clave) => (
+                    <option key={clave} value={clave}>{clave}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="anio-programa" className="mb-1.5 block text-xs font-medium text-black">
+                  Año del programa
+                </label>
+                <select
+                  id="anio-programa"
+                  value={anioPrograma}
+                  disabled={Boolean(anioPrograma)}
+                  onChange={(event) => onAnioProgramaChange(event.target.value)}
+                  className="animated-select w-full rounded-lg border border-[#A57F2C]/50 bg-[#002F2A] px-3 py-2.5 text-sm text-white outline-none transition focus:border-[#A57F2C] focus:ring-2 focus:ring-[#A57F2C]/30 disabled:cursor-not-allowed disabled:opacity-80"
+                >
+                  <option value="">Selecciona un año</option>
+                  <option value="2024">2024</option>
+                  <option value="2025">2025</option>
+                </select>
+              </div>
             </div>
-            <div>
-              <label htmlFor="anio-programa" className="mb-1.5 block text-xs font-medium text-black">
-                Año del programa
-              </label>
-              <select
-                id="anio-programa"
-                value={anioPrograma}
-                onChange={(event) => onAnioProgramaChange(event.target.value)}
-                className="animated-select w-full rounded-lg border border-[#A57F2C]/50 bg-[#002F2A] px-3 py-2.5 text-sm text-white outline-none transition focus:border-[#A57F2C] focus:ring-2 focus:ring-[#A57F2C]/30"
-              >
-                <option value="">Selecciona un año</option>
-                <option value="2024">2024</option>
-                <option value="2025">2025</option>
-              </select>
-            </div>
-          </div>
+          ) : (
+            <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="rounded-md border border-slate-900/10 bg-white/50 px-3 py-2">
+                <dt className="text-[11px] font-medium text-slate-600">Clave del programa</dt>
+                <dd className="mt-0.5 text-sm font-semibold text-slate-900">{clavePrograma || 'Sin seleccionar'}</dd>
+              </div>
+              <div className="rounded-md border border-slate-900/10 bg-white/50 px-3 py-2">
+                <dt className="text-[11px] font-medium text-slate-600">Ejercicio fiscal</dt>
+                <dd className="mt-0.5 text-sm font-semibold text-slate-900">{anioPrograma || 'Sin seleccionar'}</dd>
+              </div>
+            </dl>
+          )}
         </div>
 
         {/* Encabezado de la Sección - Card Transparente y Limpia */}
@@ -403,18 +531,18 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
             )}
           </div>
 
-          <h2 className="text-lg sm:text-xl md:text-2xl font-sans font-semibold tracking-tight text-black">
+          <h2 className="text-lg sm:text-xl md:text-2xl font-sans font-semibold tracking-tight text-stone-100">
             {seccion.titulo}
           </h2>
 
           {seccion.subtitulo && (
-            <p className="text-xs sm:text-sm text-black font-semibold">
+            <p className="text-xs sm:text-sm text-stone-200 font-semibold">
               {seccion.subtitulo}
             </p>
           )}
 
           {seccion.descripcion && (
-            <p className="text-xs text-black/90 pt-1 border-t border-[#A57F2C]/20 leading-relaxed">
+            <p className="text-xs text-stone-300 pt-1 border-t border-[#A57F2C]/20 leading-relaxed">
               {seccion.descripcion}
             </p>
           )}
@@ -436,7 +564,7 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
         {mostrarResumen ? (
           <section className="glass-form-surface space-y-4 rounded-xl border border-slate-900/15 p-4 shadow-lg sm:p-6">
             <h3 className="text-base font-semibold text-black">
-              {isSubmitted ? 'Información enviada' : 'Resumen de la sección'}
+              Resumen de la sección
             </h3>
             <dl className="space-y-3">
               {preguntasVisibles.filter(isQuestionAnswered).map((pregunta) => {
@@ -454,9 +582,17 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
                 );
               })}
             </dl>
-            {!isSubmitted && (
-              <div className="flex flex-col justify-end gap-2 border-t border-slate-900/10 pt-4 sm:flex-row">
-                {seccion.id === 'apoyos_poblacion_atendida' && supportCount < 20 && (
+            <div className="flex flex-col justify-between gap-2 border-t border-slate-900/10 pt-4 sm:flex-row">
+              <button
+                type="button"
+                onClick={onPreviousSection}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-900/20 px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-black/5"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                {seccion.numero === 1 ? 'Volver al inicio' : 'Anterior'}
+              </button>
+              <div className="flex flex-col justify-end gap-2 sm:flex-row">
+                {seccion.id === 'apoyos_poblacion_atendida' && supportCount < 30 && (
                   <button
                     type="button"
                     onClick={() => {
@@ -479,14 +615,15 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={onSubmitSection}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#003d35] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#002f2a]"
+                  onClick={guardarYSiguiente}
+                  disabled={guardandoSiguiente || !clavePrograma || !anioPrograma}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#003d35] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#002f2a] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <Send className="h-4 w-4" />
-                  Enviar información
+                  {guardandoSiguiente ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                  {guardandoSiguiente ? 'Guardando…' : 'Guardar y siguiente'}
                 </button>
               </div>
-            )}
+            </div>
           </section>
         ) : (
           <div className="space-y-4">
@@ -519,6 +656,25 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
                 </React.Fragment>
               );
             })}
+            <div className="flex flex-col justify-between gap-2 border-t border-white/15 pt-4 sm:flex-row">
+              <button
+                type="button"
+                onClick={onPreviousSection}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/20 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                {seccion.numero === 1 ? 'Volver al inicio' : 'Anterior'}
+              </button>
+              <button
+                type="button"
+                onClick={guardarYSiguiente}
+                disabled={guardandoSiguiente || !clavePrograma || !anioPrograma}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#A57F2C] px-5 py-2.5 text-sm font-bold text-[#10231f] transition hover:bg-[#c4993a] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {guardandoSiguiente ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                {guardandoSiguiente ? 'Guardando…' : 'Guardar y siguiente'}
+              </button>
+            </div>
           </div>
         )}
       </div>

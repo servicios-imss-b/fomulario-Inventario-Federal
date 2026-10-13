@@ -13,6 +13,10 @@ grant execute on function public.verificar_supabase() to anon, authenticated;
 alter table public.respuestas
   alter column fuente type varchar(500);
 
+update public.respuestas
+set estado = 'guardado'
+where estado = 'pendiente_sync';
+
 create or replace function public.registrar_formulario(p_payload jsonb)
 returns jsonb
 language plpgsql
@@ -92,7 +96,7 @@ begin
       coalesce(v_respuesta.value ->> 'pregunta', ''),
       v_respuesta.value -> 'valor',
       nullif(v_respuesta.value ->> 'fuente', ''),
-      coalesce(v_respuesta.value ->> 'estado', 'guardado'),
+      'guardado',
       coalesce(nullif(v_respuesta.value ->> 'fechaActualizacion', '')::timestamptz, v_fecha_finalizacion)
     );
   end loop;
@@ -123,6 +127,9 @@ begin
       tipo,
       tamanio,
       extension,
+      proveedor_almacenamiento,
+      almacenamiento_id,
+      ruta_almacenamiento,
       estado
     ) values (
       v_formulario_id,
@@ -130,7 +137,10 @@ begin
       left(coalesce(v_archivo ->> 'tipo', 'application/octet-stream'), 120),
       v_archivo_tamanio,
       v_archivo_extension,
-      'pendiente'
+      coalesce(nullif(v_archivo ->> 'proveedorAlmacenamiento', ''), 'google_drive'),
+      nullif(v_archivo ->> 'driveFileId', ''),
+      nullif(v_archivo ->> 'url', ''),
+      coalesce(nullif(v_archivo ->> 'estado', ''), 'pendiente')
     );
   end loop;
 

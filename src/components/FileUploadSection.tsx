@@ -76,7 +76,7 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
           tamanioLegible: formatFileSize(file.size),
           extension: ext,
           fechaCarga: new Date().toISOString(),
-          estado: isOnline ? 'sincronizado' : 'pendiente_sync',
+          estado: 'pendiente_sync',
           dataBase64: base64Data,
         };
 
@@ -134,13 +134,16 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
             <span className="px-3 py-1 rounded-full bg-[#611232] text-[#A57F2C] text-xs font-bold uppercase tracking-wider border border-[#A57F2C]/40">
               DOCUMENTACIÓN / ARCHIVOS
             </span>
-            <span className="text-xs text-stone-400 font-medium">Formatos .pdf, .xls, .xlsx</span>
+            <span className="text-xs text-stone-300 font-medium">PDF · XLS · XLSX · Máximo 15 MB</span>
           </div>
           <h2 className="text-xl sm:text-2xl md:text-3xl font-serif font-bold text-stone-100">
             Adjuntar Archivos y Evidencia Documental
           </h2>
           <p className="text-xs sm:text-sm text-stone-300">
-            Adjunta los archivos necesarios para complementar tu registro del programa (reglas de operación, padrones anonimizados, informes MIR o anexos técnicos).
+            Adjunta evidencias y diagnósticos del programa, como reglas de operación, padrones anonimizados, informes MIR o anexos técnicos. Son obligatorios cuando una pregunta los solicita; si no se requieren, la carga es opcional.
+          </p>
+          <p className="text-xs font-medium text-stone-200">
+            Formatos permitidos: PDF (.pdf), Excel (.xls, .xlsx). Máximo 15 MB por archivo.
           </p>
         </div>
 

@@ -15,6 +15,7 @@ import { Header } from './components/Header';
 import { ProgressBar } from './components/ProgressBar';
 import { LandingView } from './components/LandingView';
 import { LoadingOverlay } from './components/LoadingOverlay';
+import { IntroVideo } from './components/IntroVideo';
 import { FormSectionView } from './components/FormSectionView';
 import { FileUploadSection } from './components/FileUploadSection';
 import { ConfirmationModal } from './components/ConfirmationModal';
@@ -68,6 +69,7 @@ const reconcilePrefilledAnswers = (
         notaPrellenado: undefined,
         prefillScope: '',
         prefillDisagreed: false,
+        prefillConfirmed: false,
         fechaActualizacion: new Date().toISOString(),
       };
     }
@@ -89,6 +91,7 @@ const reconcilePrefilledAnswers = (
       prellenada: true,
       prefillScope: scope,
       prefillDisagreed: false,
+      prefillConfirmed: false,
       prefillEdited: false,
       fechaActualizacion: new Date().toISOString(),
       estado: 'guardado',
@@ -99,6 +102,7 @@ const reconcilePrefilledAnswers = (
 };
 
 export default function App() {
+  const [introCompleted, setIntroCompleted] = useState(false);
   const [step, setStep] = useState<AppStep>('landing');
   const [currentSectionIndex, setCurrentSectionIndex] = useState<number>(0);
 
@@ -139,8 +143,6 @@ export default function App() {
   const claveProgramaActual = String(respuestas['clave_programa']?.valor ?? '').trim();
   const anioProgramaActual = String(respuestas['anio_captura']?.valor ?? '').trim();
   const captureScope = getCaptureScope(claveProgramaActual, anioProgramaActual);
-  const submittedSections = captureScope ? submittedSectionsByScope[captureScope] ?? [] : [];
-  const allSectionsSubmitted = submittedSections.length === SECCIONES_CUESTIONARIO.length;
 
   useEffect(() => {
     const currentState = window.history.state;
@@ -221,7 +223,6 @@ export default function App() {
             };
           }
           delete respuestasGuardadas['10.1'];
-          setClaveProgramaBloqueada(Boolean(respuestasGuardadas['clave_programa']?.valor));
           const reconciledAnswers = reconcilePrefilledAnswers(
             respuestasGuardadas,
             String(respuestasGuardadas['clave_programa']?.valor ?? '').trim(),
@@ -282,6 +283,7 @@ export default function App() {
       try {
         const count = await ApiService.syncPendingQueue();
         if (count > 0) {
+          setArchivos(await getArchivosLocal());
           addToast(`Sincronización completada (${count} elementos)`, 'success');
         }
       } catch (e) {
@@ -328,7 +330,8 @@ export default function App() {
     seccionId: string,
     pregunta: string,
     valor: any,
-    fuente?: string
+    fuente?: string,
+    correoPersonalPorBaja?: boolean
   ) => {
     const fechaActualizacion = new Date().toISOString();
     const previousAnswer = respuestas[preguntaId];
@@ -343,7 +346,11 @@ export default function App() {
         prellenada: true,
         prefillScope: previousAnswer.prefillScope,
         prefillDisagreed: previousAnswer.prefillDisagreed,
+        prefillConfirmed: previousAnswer.prefillDisagreed ? true : previousAnswer.prefillConfirmed,
         prefillEdited: previousAnswer.prefillEdited || previousAnswer.prefillDisagreed,
+      } : {}),
+      ...(correoPersonalPorBaja !== undefined || previousAnswer?.correoPersonalPorBaja !== undefined ? {
+        correoPersonalPorBaja: correoPersonalPorBaja ?? previousAnswer?.correoPersonalPorBaja,
       } : {}),
       fechaActualizacion,
       estado: 'guardado',
@@ -359,6 +366,18 @@ export default function App() {
         )
       : updatedAnswers;
     setRespuestas(answersToSave);
+    if (captureScope && submittedSectionsByScope[captureScope]?.includes(seccionId)) {
+      const updatedSectionsByScope = {
+        ...submittedSectionsByScope,
+        [captureScope]: (submittedSectionsByScope[captureScope] ?? []).filter((id) => id !== seccionId),
+      };
+      setSubmittedSectionsByScope(updatedSectionsByScope);
+      void saveMetaFormulario({
+        step,
+        currentSectionIndex,
+        submittedSectionsByScope: updatedSectionsByScope,
+      });
+    }
     if (answersToSave !== updatedAnswers) {
       Object.entries(answersToSave).forEach(([answerId, answer]) => {
         if (answerId !== preguntaId && JSON.stringify(answer) !== JSON.stringify(respuestas[answerId])) {
@@ -404,8 +423,38 @@ export default function App() {
   };
 
   const handleClaveProgramaChange = (clave: string) => {
-    setClaveProgramaBloqueada(Boolean(clave));
     handleRespuestaChange('clave_programa', 'datos_generales', 'Clave del programa', clave);
+  };
+
+  const handleResetProgramSelection = async () => {
+    if (!window.confirm('Restablecer la selección borrará las respuestas y archivos asociados al programa actual. Se conservarán los datos del capturista. ¿Deseas continuar?')) {
+      return;
+    }
+
+    Object.values(saveTimeoutRef.current).forEach(clearTimeout);
+    saveTimeoutRef.current = {};
+
+    const capturistaAnswerIds = new Set(['1', '2', '3', '4', '5']);
+    const capturistaAnswers = Object.fromEntries(
+      Object.entries(respuestas).filter(([questionId]) => capturistaAnswerIds.has(questionId)),
+    );
+
+    await clearAllLocalData();
+    await Promise.all([
+      ...Object.values(capturistaAnswers).map((answer) => saveRespuestaLocal(answer)),
+      saveDatosUsuarioLocal(usuario),
+    ]);
+
+    setRespuestas(capturistaAnswers);
+    setArchivos([]);
+    setSubmittedSectionsByScope({});
+    setCurrentSectionIndex(0);
+    setIsConfirmationOpen(false);
+    setEstadoGuardado('guardado');
+    setEstadoConexion((previous) => ({ ...previous, elementosPendientes: 0, sincronizando: false }));
+    setStep('section');
+    await saveMetaFormulario({ step: 'section', currentSectionIndex: 0, submittedSectionsByScope: {} });
+    addToast('Selección restablecida. Elige la clave y el ejercicio correctos.', 'info');
   };
 
   const handlePrefillAgreement = (questionId: string, disagreed: boolean) => {
@@ -414,6 +463,7 @@ export default function App() {
     const updated: RespuestaItem = {
       ...existing,
       prefillDisagreed: disagreed,
+      prefillConfirmed: !disagreed,
       fechaActualizacion: new Date().toISOString(),
     };
     setRespuestas((previous) => ({ ...previous, [questionId]: updated }));
@@ -426,9 +476,12 @@ export default function App() {
     setArchivos(updated);
     const res = await ApiService.uploadArchivo(archivo);
     if (res.synced) {
+      setArchivos((prev) => prev.map((item) => item.id === archivo.id
+        ? { ...item, ...res.archivo, estado: 'sincronizado' }
+        : item));
       addToast('Archivo cargado correctamente.', 'success');
     } else {
-      addToast('Archivo conservado localmente en IndexedDB.', 'warning');
+      addToast(res.error || 'Archivo conservado localmente en IndexedDB.', 'warning');
     }
     const queue = await getSyncQueue();
     setEstadoConexion((prev) => ({ ...prev, elementosPendientes: queue.length }));
@@ -446,6 +499,7 @@ export default function App() {
     setEstadoConexion((prev) => ({ ...prev, sincronizando: true }));
     try {
       const count = await ApiService.syncPendingQueue();
+      if (count > 0) setArchivos(await getArchivosLocal());
       addToast(`Sincronización manual: ${count} elementos procesados.`, 'success');
     } catch {
       addToast('No fue posible sincronizar en este momento.', 'error');
@@ -460,12 +514,9 @@ export default function App() {
     }
   };
 
-  const beginQuestionnaire = (resume = false) => {
-    const firstOpenIndex = SECCIONES_CUESTIONARIO.findIndex((section) => !submittedSections.includes(section.id));
-    const canResumeCurrent = resume && currentSectionIndex >= 0 &&
-      !submittedSections.includes(SECCIONES_CUESTIONARIO[currentSectionIndex]?.id);
-    const sectionIndex = canResumeCurrent ? currentSectionIndex : firstOpenIndex;
-    const nextStep = sectionIndex < 0 ? 'archivos' : 'section';
+  const beginQuestionnaire = () => {
+    const sectionIndex = Math.min(Math.max(currentSectionIndex, 0), SECCIONES_CUESTIONARIO.length - 1);
+    const nextStep = 'section';
     if (window.matchMedia('(min-width: 1024px)').matches) {
       const currentState = window.history.state;
       const state = currentState && typeof currentState === 'object' ? currentState : {};
@@ -475,7 +526,7 @@ export default function App() {
             ...state,
             questionnaireFlow: 'active',
             questionnaireStep: nextStep,
-            currentSectionIndex: Math.max(sectionIndex, 0),
+            currentSectionIndex: sectionIndex,
           },
           '',
           window.location.href
@@ -485,12 +536,8 @@ export default function App() {
 
     setIsAccessLoading(true);
     accessLoadingTimeoutRef.current = window.setTimeout(() => {
-      if (sectionIndex < 0) {
-        setStep('archivos');
-      } else {
-        setCurrentSectionIndex(sectionIndex);
-        setStep('section');
-      }
+      setCurrentSectionIndex(sectionIndex);
+      setStep('section');
       setIsAccessLoading(false);
       accessLoadingTimeoutRef.current = null;
     }, 2000);
@@ -512,9 +559,37 @@ export default function App() {
     );
   };
 
-  const handleJumpToSection = (idx: number) => {
+  const persistSectionAnswers = async (sectionId: string) => {
+    const sectionAnswers = Object.values(respuestas).filter((answer) => answer.seccionId === sectionId);
+    const saveResults = await Promise.all(sectionAnswers.map(async (answer) => {
+      const pendingSave = saveTimeoutRef.current[answer.preguntaId];
+      if (pendingSave) clearTimeout(pendingSave);
+      delete saveTimeoutRef.current[answer.preguntaId];
+      return ApiService.saveRespuesta(answer);
+    }));
+    const queue = await getSyncQueue();
+    setEstadoGuardado(queue.length > 0 || saveResults.some((result) => !result.synced) ? 'pendiente' : 'guardado');
+    setEstadoConexion((previous) => ({ ...previous, elementosPendientes: queue.length }));
+  };
+
+  const handlePreviousSection = async () => {
+    if (seccionActual) await persistSectionAnswers(seccionActual.id);
+    if (currentSectionIndex === 0) {
+      setStep('landing');
+      void saveMetaFormulario({ step: 'landing', currentSectionIndex: 0, submittedSectionsByScope });
+      return;
+    }
+
+    const previousIndex = currentSectionIndex - 1;
+    pushQuestionnaireHistory('section', previousIndex);
+    setCurrentSectionIndex(previousIndex);
+    setStep('section');
+    void saveMetaFormulario({ step: 'section', currentSectionIndex: previousIndex, submittedSectionsByScope });
+  };
+
+  const handleJumpToSection = async (idx: number) => {
+    if (step === 'section' && seccionActual) await persistSectionAnswers(seccionActual.id);
     if (idx < SECCIONES_CUESTIONARIO.length) {
-      if (submittedSections.includes(SECCIONES_CUESTIONARIO[idx].id)) return;
       pushQuestionnaireHistory('section', idx);
       setCurrentSectionIndex(idx);
       setStep('section');
@@ -526,43 +601,57 @@ export default function App() {
     }
   };
 
-  const handleSubmitSection = async (sectionId: string) => {
+  const handleSaveAndNext = async (sectionId: string, sectionComplete: boolean) => {
     if (!captureScope) {
-      addToast('Selecciona la clave del programa y el año antes de enviar esta sección.', 'error');
+      addToast('Selecciona la clave del programa y el año antes de continuar.', 'error');
       setCurrentSectionIndex(0);
       return;
     }
 
-    const updatedSections = [...new Set([...(submittedSectionsByScope[captureScope] ?? []), sectionId])];
-    const updatedByScope = { ...submittedSectionsByScope, [captureScope]: updatedSections };
-    const nextOpenIndex = SECCIONES_CUESTIONARIO.findIndex((section) => !updatedSections.includes(section.id));
+    await persistSectionAnswers(sectionId);
+    const completedSections = submittedSectionsByScope[captureScope] ?? [];
+    const updatedSections = sectionComplete
+      ? [...new Set([...completedSections, sectionId])]
+      : completedSections.filter((id) => id !== sectionId);
+    const updatedSectionsByScope = { ...submittedSectionsByScope, [captureScope]: updatedSections };
+    setSubmittedSectionsByScope(updatedSectionsByScope);
+    const nextIndex = currentSectionIndex + 1;
 
-    const sectionAnswers = Object.values(respuestas).filter((answer) => answer.seccionId === sectionId);
-    for (const answer of sectionAnswers) {
-      const pendingSave = saveTimeoutRef.current[answer.preguntaId];
-      if (pendingSave) clearTimeout(pendingSave);
-      await saveRespuestaLocal({ ...answer, estado: 'guardado' });
-      delete saveTimeoutRef.current[answer.preguntaId];
-    }
+    if (nextIndex >= SECCIONES_CUESTIONARIO.length) {
+      const firstIncompleteIndex = SECCIONES_CUESTIONARIO.findIndex((section) => !updatedSections.includes(section.id));
+      if (firstIncompleteIndex >= 0) {
+        pushQuestionnaireHistory('section', firstIncompleteIndex);
+        setCurrentSectionIndex(firstIncompleteIndex);
+        setStep('section');
+        void saveMetaFormulario({
+          step: 'section',
+          currentSectionIndex: firstIncompleteIndex,
+          submittedSectionsByScope: updatedSectionsByScope,
+        });
+        addToast('Completa las secciones pendientes antes de continuar a la documentación.', 'warning');
+        return;
+      }
 
-    setSubmittedSectionsByScope(updatedByScope);
-
-    if (nextOpenIndex < 0) {
       pushQuestionnaireHistory('archivos');
       setStep('archivos');
-      void saveMetaFormulario({ step: 'archivos', submittedSectionsByScope: updatedByScope });
+      void saveMetaFormulario({ step: 'archivos', submittedSectionsByScope: updatedSectionsByScope });
     } else {
-      pushQuestionnaireHistory('section', nextOpenIndex);
-      setCurrentSectionIndex(nextOpenIndex);
+      pushQuestionnaireHistory('section', nextIndex);
+      setCurrentSectionIndex(nextIndex);
       setStep('section');
       void saveMetaFormulario({
         step: 'section',
-        currentSectionIndex: nextOpenIndex,
-        submittedSectionsByScope: updatedByScope,
+        currentSectionIndex: nextIndex,
+        submittedSectionsByScope: updatedSectionsByScope,
       });
     }
 
-    addToast('Sección enviada y bloqueada para esta clave y año.', 'success');
+    addToast(
+      sectionComplete
+        ? 'Avance guardado. Puedes volver a editar cualquier sección.'
+        : 'Avance guardado. Puedes regresar a completar esta sección después.',
+      'success',
+    );
   };
 
   // 8. Finalizar formulario
@@ -600,7 +689,6 @@ export default function App() {
       await clearAllLocalData();
       setRespuestas({});
       setSubmittedSectionsByScope({});
-      setClaveProgramaBloqueada(false);
       setArchivos([]);
       setCurrentSectionIndex(0);
       setFolioGenerado('');
@@ -645,6 +733,8 @@ export default function App() {
 
   return (
     <div className="relative min-h-screen bg-[#020c0b] text-stone-100 flex flex-col font-sans selection:bg-[#A57F2C]/40 selection:text-white">
+      {!introCompleted && <IntroVideo onComplete={() => setIntroCompleted(true)} />}
+
       {/* CAPA DE FONDO REAL: Con manejo de carga, error y capa oscura semitransparente */}
       <SectionBackground
         imageUrl={isAdminView ? ASSET_IMAGES.formulario : step === 'landing' ? currentBackground : ASSET_IMAGES.usuario}
@@ -661,6 +751,7 @@ export default function App() {
         onManualSync={handleManualSync}
         onAdminAccess={() => setIsAdminView(true)}
         isLanding={step === 'landing' && !isAdminView}
+        showInstructions={!isAdminView && step === 'section'}
       />
 
       {/* Navegación por secciones y archivos */}
@@ -671,9 +762,10 @@ export default function App() {
           nombreSeccionActual={step === 'archivos' ? 'Documentación / Archivos' : seccionActual.titulo}
           porcentaje={porcentajeProgreso}
           maxSeccionAlcanzada={totalPasos - 1}
-          seccionesBloqueadas={[
-            ...submittedSections.map((sectionId) => SECCIONES_CUESTIONARIO.findIndex((section) => section.id === sectionId)),
-          ]}
+          seccionesBloqueadas={[]}
+          seccionesCompletadas={(
+            submittedSectionsByScope[captureScope] ?? []
+          ).map((sectionId) => SECCIONES_CUESTIONARIO.findIndex((section) => section.id === sectionId))}
           onSelectSeccion={handleJumpToSection}
         />
       )}
@@ -697,16 +789,15 @@ export default function App() {
             respuestas={respuestas}
             clavePrograma={String(respuestas['clave_programa']?.valor ?? '')}
             anioPrograma={String(respuestas['anio_captura']?.valor ?? '')}
-            claveBloqueada={claveProgramaBloqueada}
-            isSubmitted={submittedSections.includes(seccionActual.id)}
-            onToggleClaveBloqueada={() => setClaveProgramaBloqueada((bloqueada) => !bloqueada)}
             onClaveProgramaChange={handleClaveProgramaChange}
             onAnioProgramaChange={(valor) =>
               handleRespuestaChange('anio_captura', 'datos_generales', 'Año del programa', valor)
             }
+            onResetProgramSelection={handleResetProgramSelection}
+            onSaveAndNext={(sectionComplete) => handleSaveAndNext(seccionActual.id, sectionComplete)}
+            onPreviousSection={handlePreviousSection}
             onPrefillAgreement={handlePrefillAgreement}
             onRespuestaChange={handleRespuestaChange}
-            onSubmitSection={() => handleSubmitSection(seccionActual.id)}
           />
         )}
 

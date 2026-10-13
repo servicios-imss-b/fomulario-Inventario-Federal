@@ -3,6 +3,7 @@ import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import fs from 'fs';
 import dotenv from 'dotenv';
+import { randomBytes } from 'node:crypto';
 
 dotenv.config();
 
@@ -31,6 +32,135 @@ const memoryDb = {
   formulariosFinalizados: new Map<string, any>(),
 };
 
+const GOOGLE_DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID || '1VxUTlq70YT5dqpD3HmM5IOmb69_Y6Mj9';
+const GOOGLE_DRIVE_TOKEN_PATH = path.resolve(process.env.GOOGLE_DRIVE_TOKEN_PATH || '.drive-token.json');
+const GOOGLE_DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive';
+const driveOAuthStates = new Map<string, number>();
+let cachedDriveAccessToken: { value: string; expiresAt: number } | null = null;
+
+const getDriveRedirectUri = (req: Request) =>
+  process.env.GOOGLE_DRIVE_REDIRECT_URI || `${req.protocol}://${req.get('host')}/api/drive/oauth/callback`;
+
+const getDriveRefreshToken = (): string => {
+  if (process.env.GOOGLE_DRIVE_REFRESH_TOKEN) return process.env.GOOGLE_DRIVE_REFRESH_TOKEN;
+  try {
+    if (!fs.existsSync(GOOGLE_DRIVE_TOKEN_PATH)) return '';
+    const saved = JSON.parse(fs.readFileSync(GOOGLE_DRIVE_TOKEN_PATH, 'utf8')) as { refresh_token?: string };
+    return saved.refresh_token || '';
+  } catch {
+    return '';
+  }
+};
+
+const getDriveConfigStatus = () => ({
+  clientConfigured: Boolean(process.env.GOOGLE_DRIVE_CLIENT_ID && process.env.GOOGLE_DRIVE_CLIENT_SECRET),
+  folderConfigured: Boolean(GOOGLE_DRIVE_FOLDER_ID),
+  authorized: Boolean(getDriveRefreshToken()),
+});
+
+async function getGoogleDriveAccessToken(): Promise<string> {
+  const clientId = process.env.GOOGLE_DRIVE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_DRIVE_CLIENT_SECRET;
+  const refreshToken = getDriveRefreshToken();
+  if (!clientId || !clientSecret || !refreshToken) {
+    throw new Error('Google Drive no está autorizado. Configura el cliente OAuth y visita /api/drive/auth.');
+  }
+  if (cachedDriveAccessToken && cachedDriveAccessToken.expiresAt > Date.now() + 60_000) {
+    return cachedDriveAccessToken.value;
+  }
+
+  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: 'refresh_token',
+    }),
+  });
+  const tokenData = await tokenResponse.json() as { access_token?: string; expires_in?: number; error?: string };
+  if (!tokenResponse.ok || !tokenData.access_token) {
+    cachedDriveAccessToken = null;
+    throw new Error('No se pudo renovar la autorización de Google Drive. Revisa el OAuth en /api/drive/auth.');
+  }
+
+  cachedDriveAccessToken = {
+    value: tokenData.access_token,
+    expiresAt: Date.now() + (tokenData.expires_in || 3600) * 1000,
+  };
+  return cachedDriveAccessToken.value;
+}
+
+async function uploadFileToGoogleDrive(payload: {
+  nombre: string;
+  tipo?: string;
+  tamanio?: number;
+  extension?: string;
+  dataBase64?: string;
+  id?: string;
+}) {
+  const extension = (payload.extension || path.extname(payload.nombre)).toLowerCase();
+  const mimeTypeByExtension: Record<string, string> = {
+    '.pdf': 'application/pdf',
+    '.xls': 'application/vnd.ms-excel',
+    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  };
+  const mimeType = mimeTypeByExtension[extension];
+  if (!mimeType) throw new Error('Solo se aceptan archivos PDF, XLS o XLSX.');
+  if (!payload.dataBase64) throw new Error('El contenido del archivo no está disponible para subir a Drive.');
+
+  const base64Content = payload.dataBase64.includes(',')
+    ? payload.dataBase64.slice(payload.dataBase64.indexOf(',') + 1)
+    : payload.dataBase64;
+  const fileBuffer = Buffer.from(base64Content, 'base64');
+  const maxUploadSizeBytes = 15 * 1024 * 1024;
+  if (fileBuffer.length === 0 || fileBuffer.length > maxUploadSizeBytes) {
+    throw new Error('El archivo debe pesar más de 0 y máximo 15 MB.');
+  }
+  if (payload.tamanio && Math.abs(payload.tamanio - fileBuffer.length) > 2) {
+    throw new Error('El tamaño recibido no coincide con el contenido del archivo.');
+  }
+
+  const accessToken = await getGoogleDriveAccessToken();
+  const boundary = `drive_upload_${randomBytes(12).toString('hex')}`;
+  const safeName = path.basename(payload.nombre).replace(/[\u0000-\u001f]/g, '_').slice(0, 255);
+  const metadata = {
+    name: safeName,
+    mimeType,
+    parents: [GOOGLE_DRIVE_FOLDER_ID],
+    appProperties: payload.id ? { formularioArchivoId: payload.id } : undefined,
+  };
+  const body = Buffer.concat([
+    Buffer.from(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`),
+    Buffer.from(`--${boundary}\r\nContent-Type: ${mimeType}\r\n\r\n`),
+    fileBuffer,
+    Buffer.from(`\r\n--${boundary}--`),
+  ]);
+  const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType,size,webViewLink,parents', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': `multipart/related; boundary=${boundary}`,
+    },
+    body,
+  });
+  const driveFile = await response.json() as { id?: string; name?: string; webViewLink?: string; error?: { message?: string } };
+  if (!response.ok || !driveFile.id) {
+    throw new Error(`Google Drive no pudo guardar el archivo${driveFile.error?.message ? `: ${driveFile.error.message}` : '.'}`);
+  }
+
+  return {
+    nombre: driveFile.name || safeName,
+    tipo: mimeType,
+    tamanio: fileBuffer.length,
+    extension,
+    driveFileId: driveFile.id,
+    url: driveFile.webViewLink || `https://drive.google.com/open?id=${driveFile.id}`,
+    proveedorAlmacenamiento: 'google_drive',
+  };
+}
+
 // Optional Supabase client initialization
 let supabaseClient: any = null;
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -57,7 +187,80 @@ app.get('/api/health/', (_req: Request, res: Response) => {
     instrumento: 'Inventario Federal de Programas y Acciones de Desarrollo Social 2024 y 2025',
     tiempo: new Date().toISOString(),
     supabaseConectado: Boolean(SUPABASE_URL && SUPABASE_KEY),
+    googleDriveConfigurado: getDriveConfigStatus().authorized,
   });
+});
+
+app.get('/api/drive/status', (_req: Request, res: Response) => {
+  res.json({
+    ...getDriveConfigStatus(),
+    folderId: GOOGLE_DRIVE_FOLDER_ID,
+  });
+});
+
+app.get('/api/drive/auth', (req: Request, res: Response) => {
+  const clientId = process.env.GOOGLE_DRIVE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_DRIVE_CLIENT_SECRET;
+  if (!clientId || !clientSecret) {
+    return res.status(503).send('Configura GOOGLE_DRIVE_CLIENT_ID y GOOGLE_DRIVE_CLIENT_SECRET en el archivo local .env antes de autorizar Drive.');
+  }
+
+  const state = randomBytes(24).toString('hex');
+  driveOAuthStates.set(state, Date.now());
+  const redirectUri = getDriveRedirectUri(req);
+  const authorizationUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  authorizationUrl.search = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope: GOOGLE_DRIVE_SCOPE,
+    access_type: 'offline',
+    prompt: 'consent',
+    state,
+  }).toString();
+
+  return res.redirect(authorizationUrl.toString());
+});
+
+app.get('/api/drive/oauth/callback', async (req: Request, res: Response) => {
+  const state = String(req.query.state || '');
+  const stateCreatedAt = driveOAuthStates.get(state);
+  if (!stateCreatedAt || Date.now() - stateCreatedAt > 10 * 60 * 1000) {
+    return res.status(400).send('La autorización expiró o no es válida. Vuelve a iniciar /api/drive/auth.');
+  }
+  driveOAuthStates.delete(state);
+
+  const code = String(req.query.code || '');
+  if (!code) return res.status(400).send('Google no devolvió el código de autorización.');
+
+  try {
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: process.env.GOOGLE_DRIVE_CLIENT_ID || '',
+        client_secret: process.env.GOOGLE_DRIVE_CLIENT_SECRET || '',
+        redirect_uri: getDriveRedirectUri(req),
+        grant_type: 'authorization_code',
+      }),
+    });
+    const tokenData = await tokenResponse.json() as { refresh_token?: string };
+    if (!tokenResponse.ok || !tokenData.refresh_token) {
+      return res.status(400).send('Google no devolvió un refresh token. Revisa el OAuth Client y vuelve a autorizar.');
+    }
+
+    await fs.promises.writeFile(
+      GOOGLE_DRIVE_TOKEN_PATH,
+      JSON.stringify({ refresh_token: tokenData.refresh_token }, null, 2),
+      { encoding: 'utf8', mode: 0o600 },
+    );
+    cachedDriveAccessToken = null;
+    return res.type('html').send('<!doctype html><html lang="es"><meta charset="utf-8"><title>Drive autorizado</title><body style="font-family:sans-serif;background:#062d28;color:#f4f7f5;padding:3rem"><h1>Google Drive autorizado</h1><p>Ya puedes cerrar esta pestaña y volver al formulario.</p></body></html>');
+  } catch (error) {
+    console.error('[Google Drive OAuth] No se pudo completar la autorización.');
+    return res.status(500).send('No se pudo guardar la autorización local de Drive. Revisa la consola del servidor.');
+  }
 });
 
 // GET /api/formulario/
@@ -157,7 +360,7 @@ app.get('/api/respuestas/', (_req: Request, res: Response) => {
 });
 
 // POST /api/archivos/
-app.post('/api/archivos/', (req: Request, res: Response) => {
+app.post('/api/archivos/', async (req: Request, res: Response) => {
   try {
     const { id, nombre, tipo, tamanio, extension, dataBase64 } = req.body;
 
@@ -182,12 +385,26 @@ app.post('/api/archivos/', (req: Request, res: Response) => {
       });
     }
 
-    const archivoRecord = {
-      id: id || `arch_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      nombre,
+    const driveStatus = getDriveConfigStatus();
+    if (!driveStatus.clientConfigured || !driveStatus.authorized || !driveStatus.folderConfigured) {
+      return res.status(503).json({
+        error: 'Google Drive aún no está autorizado. Configura el OAuth Client y abre /api/drive/auth en este servidor.',
+        driveConfigurado: false,
+      });
+    }
+
+    const driveFile = await uploadFileToGoogleDrive({
+      id,
+      nombre: path.basename(nombre),
       tipo,
       tamanio,
       extension: ext,
+      dataBase64,
+    });
+
+    const archivoRecord = {
+      id: id || `arch_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      ...driveFile,
       fechaCarga: new Date().toISOString(),
       estado: 'sincronizado',
     };
@@ -201,8 +418,7 @@ app.post('/api/archivos/', (req: Request, res: Response) => {
     });
   } catch (error: any) {
     return res.status(500).json({
-      error: 'No fue posible procesar la carga del archivo.',
-      detalle: error.message,
+      error: error instanceof Error ? error.message : 'No fue posible cargar el archivo en Google Drive.',
     });
   }
 });
@@ -226,54 +442,66 @@ app.get('/api/archivos/', (_req: Request, res: Response) => {
 });
 
 // POST /api/sincronizar/ (Batch offline queue processing)
-app.post('/api/sincronizar/', (req: Request, res: Response) => {
+app.post('/api/sincronizar/', async (req: Request, res: Response) => {
   try {
     const { items } = req.body;
     if (!Array.isArray(items)) {
       return res.status(400).json({ error: 'items debe ser una lista de mutaciones pendientes' });
     }
 
-    let procesados = 0;
+    const resultados: Array<{ id: number | undefined; success: boolean; data?: any; error?: string }> = [];
     for (const item of items) {
-      if (item.tipo === 'respuesta' && item.payload) {
-        const p = item.payload;
-        const maxCaracteres = ['10', '14', '15', 'comentario_7'].includes(p.preguntaId) ? 500 : 300;
-        if (typeof p.valor === 'string' && p.valor.length > maxCaracteres) {
-          p.valor = p.valor.substring(0, maxCaracteres);
+      try {
+        let data;
+        if (item.tipo === 'respuesta' && item.payload) {
+          const payload = item.payload;
+          const maxCaracteres = ['10', '14', '15', 'comentario_7'].includes(payload.preguntaId) ? 500 : 300;
+          if (typeof payload.valor === 'string' && payload.valor.length > maxCaracteres) {
+            payload.valor = payload.valor.substring(0, maxCaracteres);
+          }
+          memoryDb.respuestas.set(payload.preguntaId, {
+            id: payload.preguntaId,
+            pregunta_id: payload.preguntaId,
+            seccion_id: payload.seccionId || '',
+            pregunta: payload.pregunta || '',
+            respuesta: payload.valor,
+            fuente: payload.fuente || '',
+            fecha_actualizacion: payload.fechaActualizacion || new Date().toISOString(),
+          });
+        } else if (item.tipo === 'archivo' && item.payload) {
+          const driveFile = await uploadFileToGoogleDrive(item.payload);
+          data = {
+            ...driveFile,
+            id: item.payload.id,
+            fechaCarga: new Date().toISOString(),
+            estado: 'sincronizado',
+          };
+          memoryDb.archivos.set(item.payload.id, data);
+        } else if (item.tipo === 'usuario' && item.payload) {
+          memoryDb.usuario = item.payload;
+        } else {
+          throw new Error('Tipo de elemento pendiente no válido.');
         }
-        memoryDb.respuestas.set(p.preguntaId, {
-          id: p.preguntaId,
-          pregunta_id: p.preguntaId,
-          seccion_id: p.seccionId || '',
-          pregunta: p.pregunta || '',
-          respuesta: p.valor,
-          fuente: p.fuente || '',
-          fecha_actualizacion: p.fechaActualizacion || new Date().toISOString(),
+        resultados.push({ id: item.id, success: true, data });
+      } catch (error) {
+        resultados.push({
+          id: item.id,
+          success: false,
+          error: error instanceof Error ? error.message : 'No fue posible sincronizar este elemento.',
         });
-        procesados++;
-      } else if (item.tipo === 'archivo' && item.payload) {
-        memoryDb.archivos.set(item.payload.id, {
-          ...item.payload,
-          estado: 'sincronizado',
-        });
-        procesados++;
-      } else if (item.tipo === 'usuario' && item.payload) {
-        memoryDb.usuario = item.payload;
-        procesados++;
       }
     }
 
+    const procesados = resultados.filter((resultado) => resultado.success).length;
     return res.json({
-      success: true,
-      mensaje: 'Sincronización por lotes completada con éxito',
+      success: procesados === items.length,
+      mensaje: 'Sincronización por lotes procesada',
       itemsProcesados: procesados,
+      resultados,
       totalEnMemoria: memoryDb.respuestas.size,
     });
-  } catch (error: any) {
-    return res.status(500).json({
-      error: 'Error durante la sincronización por lotes',
-      detalle: error.message,
-    });
+  } catch (error) {
+    return res.status(500).json({ error: error instanceof Error ? error.message : 'Error durante la sincronización por lotes.' });
   }
 });
 

@@ -6,18 +6,21 @@ interface TextQuestionProps {
   pregunta: PreguntaConfig;
   valor: string;
   fuente?: string;
+  correoPersonalPorBaja?: boolean;
   error?: string;
-  onChange: (valor: string, fuente?: string) => void;
+  onChange: (valor: string, fuente?: string, correoPersonalPorBaja?: boolean) => void;
 }
 
 export const TextQuestion: React.FC<TextQuestionProps> = ({
   pregunta,
   valor = '',
   fuente = '',
+  correoPersonalPorBaja = false,
   error,
   onChange,
 }) => {
   const max = pregunta.maxCaracteres || 300;
+  const esCorreoContacto = pregunta.id === '3' || pregunta.id === '9';
   const charsUsed = (valor || '').length;
   const isAtLimit = charsUsed >= max;
   const enlaceOficial = pregunta.id === '13' && /^https?:\/\/\S+$/i.test(valor.trim())
@@ -31,7 +34,7 @@ export const TextQuestion: React.FC<TextQuestionProps> = ({
     if (newVal.length > max) {
       newVal = newVal.substring(0, max);
     }
-    onChange(newVal, fuente);
+    onChange(newVal, fuente, correoPersonalPorBaja);
   };
 
   const handleFuenteChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -39,7 +42,7 @@ export const TextQuestion: React.FC<TextQuestionProps> = ({
     if (newFuente.length > max) {
       newFuente = newFuente.substring(0, max);
     }
-    onChange(valor, newFuente);
+    onChange(valor, newFuente, correoPersonalPorBaja);
   };
 
   return (
@@ -75,7 +78,8 @@ export const TextQuestion: React.FC<TextQuestionProps> = ({
       <div className="relative">
         <input
           id={`preg_${pregunta.id}`}
-          type="text"
+          type={esCorreoContacto ? 'email' : 'text'}
+          autoComplete={esCorreoContacto ? 'email' : undefined}
           maxLength={max}
           value={valor || ''}
           onChange={handleChange}
@@ -84,6 +88,17 @@ export const TextQuestion: React.FC<TextQuestionProps> = ({
             error ? 'border-rose-500 focus:border-rose-400 focus:ring-rose-500/20' : ''
           }`}
         />
+        {esCorreoContacto && (
+          <label className="mt-2 flex items-start gap-2 text-xs leading-relaxed text-stone-300">
+            <input
+              type="checkbox"
+              checked={correoPersonalPorBaja}
+              onChange={(event) => onChange(valor, fuente, event.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-[#A57F2C]"
+            />
+            <span>Solo si ya no cuenta con correo institucional por baja, marque para registrar un correo personal de contacto.</span>
+          </label>
+        )}
         <div className="mt-1 flex items-center justify-between px-1 text-[10px] text-black sm:text-[11px]">
           <span className="text-black">
             {error ? <span className="text-rose-400 font-medium">{error}</span> : 'Límite de caracteres'}
