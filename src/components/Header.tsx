@@ -304,7 +304,7 @@ export const Header: React.FC<HeaderProps> = ({
               ) : estadoConexion.online && estadoConexion.apiDisponible ? (
                 <>
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                  <span className="hidden sm:inline">{usesSupabase ? 'SUPABASE' : 'CONECTADO'}</span>
+                  <span className="hidden sm:inline">CONECTADO</span>
                 </>
               ) : (
                 <>
