@@ -9,6 +9,7 @@ interface HeaderProps {
   onManualSync?: () => void;
   onAdminAccess?: () => void;
   isLanding?: boolean;
+  usesSupabase?: boolean;
   showInstructions: boolean;
 }
 
@@ -134,6 +135,7 @@ export const Header: React.FC<HeaderProps> = ({
   onManualSync,
   onAdminAccess,
   isLanding = false,
+  usesSupabase = false,
   showInstructions,
 }) => {
   const [logoNoDisponible, setLogoNoDisponible] = React.useState(false);
@@ -302,7 +304,7 @@ export const Header: React.FC<HeaderProps> = ({
               ) : estadoConexion.online && estadoConexion.apiDisponible ? (
                 <>
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                  <span className="hidden sm:inline">CONECTADO</span>
+                  <span className="hidden sm:inline">{usesSupabase ? 'SUPABASE' : 'CONECTADO'}</span>
                 </>
               ) : (
                 <>
@@ -313,7 +315,16 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
 
             {/* Botón de Sincronización Manual si hay pendientes */}
-            {estadoConexion.elementosPendientes > 0 && (
+            {estadoConexion.elementosPendientes > 0 && usesSupabase && (
+              <span
+                className="hidden md:flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-amber-200 bg-amber-950/80 border border-amber-500/40 rounded-full"
+                title="Los cambios locales se guardan en Supabase al enviar el formulario."
+              >
+                <Database className="w-3 h-3" />
+                <span>Locales ({estadoConexion.elementosPendientes})</span>
+              </span>
+            )}
+            {estadoConexion.elementosPendientes > 0 && !usesSupabase && (
               <button
                 onClick={onManualSync}
                 className="hidden md:flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-amber-200 bg-amber-950/80 hover:bg-amber-900/90 border border-amber-500/40 rounded-full transition-all"

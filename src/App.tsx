@@ -278,7 +278,7 @@ export default function App() {
     }));
 
     // Auto-sync al volver la red
-    if (isOnline && queue.length > 0 && !estadoConexion.sincronizando) {
+    if (!ApiService.usesSupabase() && isOnline && queue.length > 0 && !estadoConexion.sincronizando) {
       setEstadoConexion((prev) => ({ ...prev, sincronizando: true }));
       try {
         const count = await ApiService.syncPendingQueue();
@@ -305,7 +305,7 @@ export default function App() {
     const interval = setInterval(checkConnectivity, 12000);
 
     const handleOnline = () => {
-      addToast('Conexión reestablecida. Sincronizando datos...', 'info');
+      addToast('Conexión reestablecida.', 'info');
       checkConnectivity();
     };
 
@@ -748,7 +748,8 @@ export default function App() {
         estadoConexion={estadoConexion}
         estadoGuardado={estadoGuardado}
         seccionActualTitulo={step === 'section' ? seccionActual?.titulo : undefined}
-        onManualSync={handleManualSync}
+        onManualSync={ApiService.usesSupabase() ? undefined : handleManualSync}
+        usesSupabase={ApiService.usesSupabase()}
         onAdminAccess={() => setIsAdminView(true)}
         isLanding={step === 'landing' && !isAdminView}
         showInstructions={!isAdminView && step === 'section'}

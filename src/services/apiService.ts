@@ -16,9 +16,31 @@ export class ApiService {
   private static checkInterval: number = 10000; // 10s
 
   public static async checkConnection(): Promise<boolean> {
-    this.isApiAvailable = typeof navigator === 'undefined' || navigator.onLine;
+    const now = Date.now();
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      this.isApiAvailable = false;
+      this.lastCheckTime = now;
+      return false;
+    }
+    if (now - this.lastCheckTime < this.checkInterval) return this.isApiAvailable;
+
+    try {
+      if (supabaseClient) {
+        const { data, error } = await supabaseClient.rpc('verificar_supabase');
+        this.isApiAvailable = !error && data === true;
+      } else {
+        const response = await fetch(`${API_BASE}/health/`);
+        this.isApiAvailable = response.ok;
+      }
+    } catch {
+      this.isApiAvailable = false;
+    }
     this.lastCheckTime = Date.now();
     return this.isApiAvailable;
+  }
+
+  public static usesSupabase(): boolean {
+    return Boolean(supabaseClient);
   }
 
   public static async saveRespuesta(respuesta: RespuestaItem): Promise<{ synced: boolean; error?: string }> {
@@ -151,6 +173,8 @@ export class ApiService {
   }
 
   public static async syncPendingQueue(): Promise<number> {
+    if (supabaseClient) return 0;
+
     const online = await this.checkConnection();
     if (!online) return 0;
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { SkipForward } from 'lucide-react';
 
 interface IntroVideoProps {
@@ -6,8 +6,6 @@ interface IntroVideoProps {
 }
 
 export const IntroVideo: React.FC<IntroVideoProps> = ({ onComplete }) => {
-  const [videoError, setVideoError] = useState(false);
-
   return (
     <section
       className="fixed inset-0 z-[100] isolate overflow-hidden bg-black"
@@ -16,7 +14,7 @@ export const IntroVideo: React.FC<IntroVideoProps> = ({ onComplete }) => {
       <div className="absolute inset-0 overflow-hidden bg-black" aria-hidden="true">
         <video
           className="pointer-events-none h-full w-full scale-110 object-cover opacity-100 blur-xl"
-          src="/video-intro.mp4"
+          src={`${import.meta.env.BASE_URL}video-intro.mp4`}
           autoPlay
           muted
           loop
@@ -27,20 +25,15 @@ export const IntroVideo: React.FC<IntroVideoProps> = ({ onComplete }) => {
       </div>
       <video
         className="pointer-events-none relative z-10 h-full w-full bg-transparent object-contain"
-        src="/video-intro.mp4"
+        src={`${import.meta.env.BASE_URL}video-intro.mp4`}
         autoPlay
         muted
         playsInline
         preload="auto"
         aria-label="Video de introducción del cuestionario"
         onEnded={onComplete}
-        onError={() => setVideoError(true)}
+        onError={onComplete}
       />
-      {videoError && (
-        <p role="status" className="absolute bottom-6 left-6 max-w-[70vw] text-sm text-white">
-          No fue posible reproducir la introducción.
-        </p>
-      )}
       <button
         type="button"
         onClick={onComplete}
