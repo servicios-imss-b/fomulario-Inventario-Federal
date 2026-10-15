@@ -21,10 +21,12 @@ const QUESTIONNAIRE_SECTIONS = [
 
 interface LandingViewProps {
   onStart: () => void;
+  onDataAccess: () => void;
 }
 
 export const LandingView: React.FC<LandingViewProps> = ({
   onStart,
+  onDataAccess,
 }) => {
   const [isStarting, setIsStarting] = useState(false);
 
@@ -102,6 +104,14 @@ export const LandingView: React.FC<LandingViewProps> = ({
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </>
             )}
+          </button>
+          <button
+            type="button"
+            onClick={onDataAccess}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#e2bd68]/60 bg-[#062d28]/80 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:border-[#e2bd68] hover:bg-[#0a4039] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          >
+            <Database className="h-4 w-4 text-[#e2bd68]" aria-hidden="true" />
+            Visualización de datos
           </button>
         </div>
       </div>

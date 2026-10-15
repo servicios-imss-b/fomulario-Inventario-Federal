@@ -1,6 +1,8 @@
 import React from 'react';
 import { EstadoConexion } from '../types/form';
 import { Wifi, WifiOff, RefreshCw, CheckCircle, ShieldCheck, Database, X, ChevronDown, Lock } from 'lucide-react';
+import logoNacional from '../../../imagenes/logonacional.svg';
+import eggsGif from '../../../imagenes/eggs.gif';
 
 interface HeaderProps {
   estadoConexion: EstadoConexion;
@@ -145,6 +147,10 @@ export const Header: React.FC<HeaderProps> = ({
   const cerrarInstruccionesRef = React.useRef<HTMLButtonElement>(null);
   const logoTapCountRef = React.useRef(0);
   const logoTapTimeoutRef = React.useRef<number | null>(null);
+  const nationalLogoTapCountRef = React.useRef(0);
+  const nationalLogoTapTimeoutRef = React.useRef<number | null>(null);
+  const eggsTimeoutRef = React.useRef<number | null>(null);
+  const [showEggs, setShowEggs] = React.useState(false);
 
   const handleLogoTap = () => {
     if (logoTapTimeoutRef.current !== null) {
@@ -164,8 +170,34 @@ export const Header: React.FC<HeaderProps> = ({
     }, 2200);
   };
 
+  const handleNationalLogoTap = () => {
+    if (nationalLogoTapTimeoutRef.current !== null) {
+      window.clearTimeout(nationalLogoTapTimeoutRef.current);
+    }
+    nationalLogoTapCountRef.current += 1;
+
+    if (nationalLogoTapCountRef.current >= 10) {
+      nationalLogoTapCountRef.current = 0;
+      nationalLogoTapTimeoutRef.current = null;
+      setShowEggs(true);
+      if (eggsTimeoutRef.current !== null) window.clearTimeout(eggsTimeoutRef.current);
+      eggsTimeoutRef.current = window.setTimeout(() => {
+        setShowEggs(false);
+        eggsTimeoutRef.current = null;
+      }, 5000);
+      return;
+    }
+
+    nationalLogoTapTimeoutRef.current = window.setTimeout(() => {
+      nationalLogoTapCountRef.current = 0;
+      nationalLogoTapTimeoutRef.current = null;
+    }, 3500);
+  };
+
   React.useEffect(() => () => {
     if (logoTapTimeoutRef.current !== null) window.clearTimeout(logoTapTimeoutRef.current);
+    if (nationalLogoTapTimeoutRef.current !== null) window.clearTimeout(nationalLogoTapTimeoutRef.current);
+    if (eggsTimeoutRef.current !== null) window.clearTimeout(eggsTimeoutRef.current);
   }, []);
 
   React.useEffect(() => {
@@ -192,6 +224,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
+    <>
     <header
       className="sticky top-0 z-40 w-full bg-transparent text-slate-900"
     >
@@ -285,6 +318,16 @@ export const Header: React.FC<HeaderProps> = ({
                 </span>
               )}
             </div>
+
+            <button
+              type="button"
+              onClick={handleNationalLogoTap}
+              aria-label="Logo nacional, diez toques para activar la animación"
+              title="Logo nacional"
+              className="grid h-11 w-11 shrink-0 place-items-center p-1 opacity-90 transition hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A57F2C]"
+            >
+              <img src={logoNacional} alt="" className="h-full w-full object-contain brightness-0 invert" />
+            </button>
 
             {/* Píldora de Conexión / Offline */}
             <div
@@ -497,5 +540,11 @@ export const Header: React.FC<HeaderProps> = ({
         )}
       </div>
     </header>
+    {showEggs && (
+      <div className="fixed inset-0 z-[200] flex h-dvh w-full items-center justify-center overflow-hidden bg-black" aria-hidden="true">
+        <img src={eggsGif} alt="" className="h-full w-full object-contain" />
+      </div>
+    )}
+    </>
   );
 };

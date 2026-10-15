@@ -116,6 +116,14 @@ python manage.py runserver 8000
        VITE_SUPABASE_ANON_KEY="tu-anon-public-key"
    ```
 4. Para GitHub Pages, crear las variables `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` en **Settings > Secrets and variables > Actions > Variables** del repositorio. El workflow las inyecta al compilar. No agregar `service_role` al frontend ni a las variables `VITE_`.
+5. Para mostrar las respuestas reales en la pestaña **Tabla respuestas**, desplegar `supabase/functions/reporte-relacional` como Supabase Edge Function. Configura `REPORT_ACCESS_USER` y un `REPORT_ACCESS_PASSWORD` fuerte en los secretos de Edge Functions; `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` los proporciona Supabase en el servidor. Nunca agregues la service role key a `.env` del frontend, GitHub Pages ni al bundle.
+
+```bash
+supabase link --project-ref <project-ref>
+supabase functions deploy reporte-relacional
+```
+
+La función valida el acceso en el servidor y relaciona `formularios`, `respuestas` y `archivos`. El usuario y contraseña que estaban codificados en el frontend deben reemplazarse por los secretos configurados para esta función.
 
 El envío a Supabase ocurre al finalizar el formulario. Los adjuntos se guardan localmente y la base recibe sus metadatos; el binario requiere configurar almacenamiento por separado.
 

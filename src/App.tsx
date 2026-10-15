@@ -780,6 +780,7 @@ export default function App() {
         {step === 'landing' && (
           <LandingView
             onStart={() => beginQuestionnaire()}
+            onDataAccess={() => setIsAdminView(true)}
           />
         )}
 
