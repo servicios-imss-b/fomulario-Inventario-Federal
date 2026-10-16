@@ -3,7 +3,8 @@ import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import fs from 'fs';
 import dotenv from 'dotenv';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { createClient } from '@supabase/supabase-js';
 
 dotenv.config();
 
@@ -162,17 +163,36 @@ async function uploadFileToGoogleDrive(payload: {
 }
 
 // Optional Supabase client initialization
-let supabaseClient: any = null;
-const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_URL = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim().replace(/\/rest\/v1\/?$/, '');
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+const supabaseAdmin = SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+  ? createClient(SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+  : null;
+const reportFailedAttempts = new Map<string, { count: number; resetsAt: number }>();
 
-if (SUPABASE_URL && SUPABASE_KEY) {
-  try {
-    // Dynamic import to prevent crash if not used
-    console.log('[Supabase] Credenciales detectadas, conectando persistencia remota...');
-  } catch (e) {
-    console.warn('[Supabase] No se pudo inicializar cliente Supabase:', e);
+const secretMatches = (provided: string, expected: string) => {
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+};
+
+async function readAllPages<T>(loadPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>) {
+  const rows: T[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await loadPage(from, from + 999);
+    if (error) throw new Error(error.message);
+    rows.push(...(data ?? []));
+    if (!data || data.length < 1000) return rows;
   }
+}
+
+const toDisplayText = (value: unknown) =>
+  value === null || value === undefined || value === '' ? '' : typeof value === 'string' ? value : JSON.stringify(value);
+
+if (supabaseAdmin) {
+  console.log('[Supabase] Clave de servidor detectada; /api/reporte-relacional habilitado.');
 }
 
 // -------------------------------------------------------------
@@ -538,6 +558,101 @@ app.post('/api/formulario/finalizar/', (req: Request, res: Response) => {
       error: 'No fue posible finalizar el registro del formulario.',
       detalle: error.message,
     });
+  }
+});
+
+// POST /api/reporte-relacional
+app.post('/api/reporte-relacional', async (req: Request, res: Response) => {
+  const accessUser = process.env.REPORT_ACCESS_USER || '';
+  const accessPassword = process.env.REPORT_ACCESS_PASSWORD || '';
+  if (!supabaseAdmin || !accessUser || !accessPassword) {
+    return res.status(503).json({ error: 'Configura SUPABASE_SERVICE_ROLE_KEY, REPORT_ACCESS_USER y REPORT_ACCESS_PASSWORD en .env.' });
+  }
+
+  const identity = req.ip || 'unknown';
+  const now = Date.now();
+  const attempts = reportFailedAttempts.get(identity);
+  if (attempts && attempts.resetsAt > now && attempts.count >= 8) {
+    return res.status(429).json({ error: 'Demasiados intentos. Espera un minuto e inténtalo de nuevo.' });
+  }
+
+  const username = typeof req.body?.username === 'string' ? req.body.username : '';
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+  if (!secretMatches(username, accessUser) || !secretMatches(password, accessPassword)) {
+    const current = attempts && attempts.resetsAt > now ? attempts : { count: 0, resetsAt: now + 60_000 };
+    current.count += 1;
+    reportFailedAttempts.set(identity, current);
+    return res.status(401).json({ error: 'Usuario o contraseña incorrectos.' });
+  }
+  reportFailedAttempts.delete(identity);
+
+  try {
+    const forms = await readAllPages<any>((from, to) => supabaseAdmin
+      .from('formularios')
+      .select('id, folio, usuario_nombre, usuario_puesto, usuario_correo, usuario_telefono, usuario_entidad, fecha_captura, fecha_creacion, fecha_finalizacion, estado')
+      .order('fecha_creacion', { ascending: false })
+      .range(from, to));
+    const answers = await readAllPages<any>((from, to) => supabaseAdmin
+      .from('respuestas')
+      .select('formulario_id, pregunta_id, seccion_id, pregunta, respuesta, fuente, fecha_actualizacion')
+      .order('pregunta_id', { ascending: true })
+      .range(from, to));
+    const files = await readAllPages<any>((from, to) => supabaseAdmin
+      .from('archivos')
+      .select('formulario_id, nombre, tipo, tamanio, extension, proveedor_almacenamiento, almacenamiento_id, ruta_almacenamiento, fecha_carga, estado')
+      .order('fecha_carga', { ascending: true })
+      .range(from, to));
+
+    const group = (items: any[]) => items.reduce((map, item) => {
+      map.set(item.formulario_id, [...(map.get(item.formulario_id) ?? []), item]);
+      return map;
+    }, new Map<string, any[]>());
+    const answersByForm = group(answers);
+    const filesByForm = group(files);
+
+    const rows = forms.flatMap((form) => {
+      const formAnswers: any[] = answersByForm.get(form.id) ?? [];
+      const program = formAnswers.find((answer) => answer.pregunta_id === 'clave_programa');
+      const year = formAnswers.find((answer) => answer.pregunta_id === 'anio_captura');
+      const archivos = JSON.stringify((filesByForm.get(form.id) ?? []).map((file: any) => ({
+        nombre: file.nombre,
+        tipo: file.tipo,
+        tamanio: file.tamanio,
+        extension: file.extension,
+        proveedor: file.proveedor_almacenamiento,
+        almacenamiento_id: file.almacenamiento_id,
+        ruta: file.ruta_almacenamiento,
+        fecha_carga: file.fecha_carga,
+        estado: file.estado,
+      })));
+      return (formAnswers.length > 0 ? formAnswers : [null]).map((answer) => ({
+        formulario_id: form.id,
+        folio: form.folio,
+        programa: toDisplayText(program?.respuesta),
+        anio: toDisplayText(year?.respuesta),
+        usuario_nombre: form.usuario_nombre ?? '',
+        usuario_puesto: form.usuario_puesto ?? '',
+        usuario_correo: form.usuario_correo ?? '',
+        usuario_telefono: form.usuario_telefono ?? '',
+        usuario_entidad: form.usuario_entidad ?? '',
+        fecha_captura: form.fecha_captura ?? '',
+        fecha_creacion: form.fecha_creacion,
+        fecha_finalizacion: form.fecha_finalizacion ?? '',
+        estado: form.estado,
+        pregunta_id: answer?.pregunta_id ?? '',
+        seccion_id: answer?.seccion_id ?? '',
+        pregunta: answer?.pregunta ?? '',
+        respuesta: toDisplayText(answer?.respuesta),
+        fuente: answer?.fuente ?? '',
+        fecha_actualizacion: answer?.fecha_actualizacion ?? '',
+        archivos,
+      }));
+    });
+
+    return res.json({ success: true, rows });
+  } catch (error) {
+    console.error('[Supabase] Error al consultar el reporte:', error instanceof Error ? error.message : error);
+    return res.status(500).json({ error: 'No fue posible consultar los registros de Supabase.' });
   }
 });
 

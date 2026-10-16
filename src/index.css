@@ -154,6 +154,17 @@
   background-color: rgba(2, 24, 21, 0.96);
 }
 
+/* Respuestas precargadas bloqueadas: el navegador las atenúa por defecto. */
+fieldset:disabled .glass-input,
+fieldset:disabled input:not([type='checkbox']):not([type='radio']),
+fieldset:disabled textarea,
+fieldset:disabled select {
+  color: #ffffff;
+  -webkit-text-fill-color: #ffffff;
+  opacity: 1;
+  font-weight: 600;
+}
+
 /* Clases de fondo con opacidad controlada para legibilidad */
 .bg-medical-equipment {
   background-size: cover;

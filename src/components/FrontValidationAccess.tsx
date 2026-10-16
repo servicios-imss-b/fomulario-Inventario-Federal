@@ -6,6 +6,7 @@ interface FrontValidationAccessProps {
   onClose: () => void;
 }
 
+// Solo abre la vista; los datos reales los protege la función SQL en Supabase.
 const VALIDATION_USER = 'add.31';
 const VALIDATION_PASSWORD = '3180';
 type ReportRow = Record<string, string | number>;
@@ -18,6 +19,7 @@ export function FrontValidationAccess({ onClose }: FrontValidationAccessProps) {
   const [reportRows, setReportRows] = useState<ReportRow[]>([]);
   const [reportDataMessage, setReportDataMessage] = useState('Cargando respuestas de Supabase...');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const sendData = () => {
@@ -39,32 +41,49 @@ export function FrontValidationAccess({ onClose }: FrontValidationAccessProps) {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (username === VALIDATION_USER && password === VALIDATION_PASSWORD) {
-      const reportUsername = username;
-      const reportPassword = password;
-      setPassword('');
-      setError('');
-      setIsAuthenticated(true);
-      if (!supabaseClient) {
-        setReportDataMessage('No está configurada la conexión a Supabase.');
-        return;
-      }
-      try {
-        const { data, error: invokeError } = await supabaseClient.functions.invoke('reporte-relacional', {
-          body: { username: reportUsername, password: reportPassword },
-        });
-        if (invokeError || !data?.success || !Array.isArray(data.rows)) {
-          setReportDataMessage(invokeError?.message || data?.error || 'No fue posible cargar las respuestas desde Supabase.');
-        } else {
-          setReportRows(data.rows as ReportRow[]);
-          setReportDataMessage('');
-        }
-      } catch {
-        setReportDataMessage('No fue posible conectar con la función de Supabase.');
-      }
+    if (username !== VALIDATION_USER || password !== VALIDATION_PASSWORD) {
+      setError('Usuario o contraseña incorrectos.');
       return;
     }
-    setError('Usuario o contraseña incorrectos.');
+    const reportUsername = username;
+    const reportPassword = password;
+    setPassword('');
+    setError('');
+    setIsAuthenticated(true);
+    setIsSubmitting(true);
+    try {
+      const serverResponse = await fetch(`${import.meta.env.BASE_URL}api/reporte-relacional`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: reportUsername, password: reportPassword }),
+      }).catch(() => null);
+      const serverData = serverResponse?.headers.get('content-type')?.includes('application/json')
+        ? await serverResponse.json()
+        : null;
+      if (serverData?.success && Array.isArray(serverData.rows)) {
+        setReportRows(serverData.rows as ReportRow[]);
+        setReportDataMessage('');
+        return;
+      }
+      if (!supabaseClient) {
+        setReportDataMessage(serverData?.error || 'No está configurada la conexión a Supabase.');
+        return;
+      }
+      const { data, error: rpcError } = await supabaseClient.rpc('obtener_reporte_relacional', {
+        p_usuario: reportUsername,
+        p_password: reportPassword,
+      });
+      if (rpcError || !data?.success || !Array.isArray(data.rows)) {
+        setReportDataMessage(serverData?.error || data?.error || 'Sin datos de Supabase todavía.');
+      } else {
+        setReportRows(data.rows as ReportRow[]);
+        setReportDataMessage('');
+      }
+    } catch {
+      setReportDataMessage('No fue posible conectar con Supabase.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (isAuthenticated) {
@@ -129,9 +148,10 @@ export function FrontValidationAccess({ onClose }: FrontValidationAccessProps) {
         {error && <p role="alert" className="text-sm text-rose-200">{error}</p>}
         <button
           type="submit"
-          className="w-full rounded-lg bg-[#006b5b] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#005247]"
+          disabled={isSubmitting}
+          className="w-full rounded-lg bg-[#006b5b] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#005247] disabled:opacity-60"
         >
-          Ingresar
+          {isSubmitting ? 'Validando...' : 'Ingresar'}
         </button>
       </form>
     </section>
