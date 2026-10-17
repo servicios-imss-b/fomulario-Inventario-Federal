@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, LockKeyhole } from 'lucide-react';
 import { supabaseClient } from '../services/supabaseClient';
 
@@ -6,81 +6,107 @@ interface FrontValidationAccessProps {
   onClose: () => void;
 }
 
-// Solo abre la vista; los datos reales los protege la función SQL en Supabase.
-const VALIDATION_USER = 'add.31';
-const VALIDATION_PASSWORD = '3180';
 type ReportRow = Record<string, string | number>;
+type ReportResult = { rows: ReportRow[] } | { error: string; authFailed: boolean };
+
+const REFRESH_INTERVAL_MS = 30_000;
+
+async function fetchReport(username: string, password: string): Promise<ReportResult> {
+  const serverResponse = await fetch(`${import.meta.env.BASE_URL}api/reporte-relacional`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  }).catch(() => null);
+  const serverData = serverResponse?.headers.get('content-type')?.includes('application/json')
+    ? await serverResponse.json().catch(() => null)
+    : null;
+  if (serverData?.success && Array.isArray(serverData.rows)) return { rows: serverData.rows as ReportRow[] };
+  if (serverResponse?.status === 401 || serverResponse?.status === 429) {
+    return { error: serverData?.error || 'Usuario o contraseña incorrectos.', authFailed: true };
+  }
+
+  // Sin servidor (GitHub Pages): la función SQL valida el acceso dentro de Supabase.
+  if (!supabaseClient) return { error: 'No está configurada la conexión a Supabase.', authFailed: false };
+  const { data, error } = await supabaseClient.rpc('obtener_reporte_relacional', { p_usuario: username, p_password: password });
+  if (error) return { error: 'No fue posible consultar el reporte en Supabase.', authFailed: false };
+  if (!data?.success || !Array.isArray(data.rows)) {
+    return { error: data?.error || 'Usuario o contraseña incorrectos.', authFailed: true };
+  }
+  return { rows: data.rows as ReportRow[] };
+}
 
 export function FrontValidationAccess({ onClose }: FrontValidationAccessProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const credentialsRef = useRef<{ username: string; password: string } | null>(null);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [reportRows, setReportRows] = useState<ReportRow[]>([]);
-  const [reportDataMessage, setReportDataMessage] = useState('Cargando respuestas de Supabase...');
+  const [reportDataMessage, setReportDataMessage] = useState('');
+  const [updatedAt, setUpdatedAt] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const refreshReport = useCallback(async () => {
+    const credentials = credentialsRef.current;
+    if (!credentials) return;
+    try {
+      const result = await fetchReport(credentials.username, credentials.password);
+      if ('rows' in result) {
+        setReportRows(result.rows);
+        setReportDataMessage('');
+        setUpdatedAt(new Date().toISOString());
+      } else {
+        setReportDataMessage(result.error);
+      }
+    } catch {
+      setReportDataMessage('No fue posible actualizar los datos. Se reintentará en unos segundos.');
+    }
+  }, []);
 
   useEffect(() => {
     const sendData = () => {
       iframeRef.current?.contentWindow?.postMessage(
-        { type: 'supabase-relational-data', rows: reportRows, error: reportDataMessage },
+        { type: 'supabase-relational-data', rows: reportRows, error: reportDataMessage, updatedAt },
         window.location.origin,
       );
     };
 
-    const handleReportReady = (event: MessageEvent) => {
+    const handleReportMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin || event.source !== iframeRef.current?.contentWindow) return;
       if (event.data?.type === 'reporte-new-ready') sendData();
+      if (event.data?.type === 'reporte-new-refresh') void refreshReport();
     };
 
-    window.addEventListener('message', handleReportReady);
+    window.addEventListener('message', handleReportMessage);
     if (isAuthenticated) sendData();
-    return () => window.removeEventListener('message', handleReportReady);
-  }, [isAuthenticated, reportRows, reportDataMessage]);
+    return () => window.removeEventListener('message', handleReportMessage);
+  }, [isAuthenticated, reportRows, reportDataMessage, updatedAt, refreshReport]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const timer = window.setInterval(() => void refreshReport(), REFRESH_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [isAuthenticated, refreshReport]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (username !== VALIDATION_USER || password !== VALIDATION_PASSWORD) {
-      setError('Usuario o contraseña incorrectos.');
-      return;
-    }
-    const reportUsername = username;
-    const reportPassword = password;
-    setPassword('');
-    setError('');
-    setIsAuthenticated(true);
     setIsSubmitting(true);
+    setError('');
     try {
-      const serverResponse = await fetch(`${import.meta.env.BASE_URL}api/reporte-relacional`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: reportUsername, password: reportPassword }),
-      }).catch(() => null);
-      const serverData = serverResponse?.headers.get('content-type')?.includes('application/json')
-        ? await serverResponse.json()
-        : null;
-      if (serverData?.success && Array.isArray(serverData.rows)) {
-        setReportRows(serverData.rows as ReportRow[]);
+      const result = await fetchReport(username, password);
+      if ('rows' in result) {
+        credentialsRef.current = { username, password };
+        setPassword('');
+        setReportRows(result.rows);
         setReportDataMessage('');
-        return;
-      }
-      if (!supabaseClient) {
-        setReportDataMessage(serverData?.error || 'No está configurada la conexión a Supabase.');
-        return;
-      }
-      const { data, error: rpcError } = await supabaseClient.rpc('obtener_reporte_relacional', {
-        p_usuario: reportUsername,
-        p_password: reportPassword,
-      });
-      if (rpcError || !data?.success || !Array.isArray(data.rows)) {
-        setReportDataMessage(serverData?.error || data?.error || 'Sin datos de Supabase todavía.');
+        setUpdatedAt(new Date().toISOString());
+        setIsAuthenticated(true);
       } else {
-        setReportRows(data.rows as ReportRow[]);
-        setReportDataMessage('');
+        setError(result.error);
       }
     } catch {
-      setReportDataMessage('No fue posible conectar con Supabase.');
+      setError('No fue posible conectar con Supabase.');
     } finally {
       setIsSubmitting(false);
     }
@@ -93,7 +119,7 @@ export function FrontValidationAccess({ onClose }: FrontValidationAccessProps) {
         title="Reporte de situación hospitalaria"
         src={`${import.meta.env.BASE_URL}reporte-new/index.html`}
         onLoad={() => iframeRef.current?.contentWindow?.postMessage(
-          { type: 'supabase-relational-data', rows: reportRows, error: reportDataMessage },
+          { type: 'supabase-relational-data', rows: reportRows, error: reportDataMessage, updatedAt },
           window.location.origin,
         )}
         className="fixed inset-0 z-[100] block h-dvh w-full border-0 bg-gray-50"
