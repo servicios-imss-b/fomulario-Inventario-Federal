@@ -34,6 +34,9 @@ declare
   v_archivo jsonb;
   v_archivo_extension text;
   v_archivo_tamanio bigint;
+    v_clave_programa text;
+    v_anio_programa text;
+    v_asignaciones jsonb;
   v_fecha_finalizacion timestamptz := coalesce(
     nullif(p_payload ->> 'fechaFinalizacion', '')::timestamptz,
     now()
@@ -46,6 +49,26 @@ begin
   if jsonb_typeof(coalesce(p_payload -> 'respuestas', '{}'::jsonb)) <> 'object' then
     raise exception 'Las respuestas del formulario no son válidas.' using errcode = '22023';
   end if;
+
+    if auth.uid() is null then
+      raise exception 'Inicia sesión para registrar el formulario.' using errcode = '42501';
+    end if;
+
+    v_clave_programa := nullif(p_payload #>> '{respuestas,clave_programa,valor}', '');
+    v_anio_programa := nullif(p_payload #>> '{respuestas,anio_captura,valor}', '');
+    v_asignaciones := coalesce(auth.jwt() #> '{app_metadata,form_access}', '[]'::jsonb);
+    if jsonb_typeof(v_asignaciones) <> 'array' then
+      v_asignaciones := '[]'::jsonb;
+    end if;
+
+    if v_clave_programa is null or v_anio_programa is null or not exists (
+      select 1
+      from jsonb_array_elements(v_asignaciones) as assignment(item)
+      where assignment.item ->> 'clave' = v_clave_programa
+        and assignment.item ->> 'anio' = v_anio_programa
+    ) then
+      raise exception 'La cuenta no tiene acceso a esa clave y ejercicio.' using errcode = '42501';
+    end if;
 
   insert into public.formularios (
     id,
@@ -154,7 +177,9 @@ end;
 $$;
 
 revoke all on function public.registrar_formulario(jsonb) from public;
-grant execute on function public.registrar_formulario(jsonb) to anon, authenticated;
+revoke all on function public.registrar_formulario(jsonb) from anon;
+grant execute on function public.registrar_formulario(jsonb) to authenticated;
+drop function if exists public.registrar_formulario(jsonb);
 
 create or replace function public.is_admin()
 returns boolean
@@ -168,6 +193,7 @@ $$;
 revoke all on function public.is_admin() from public, anon;
 grant execute on function public.is_admin() to authenticated;
 
+revoke all on public.formularios, public.respuestas, public.archivos from anon, authenticated;
 grant select on public.formularios, public.respuestas to authenticated;
 
 drop policy if exists admin_read_formularios on public.formularios;

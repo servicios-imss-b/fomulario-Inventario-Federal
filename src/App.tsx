@@ -33,14 +33,17 @@ import {
   saveMetaFormulario,
   getSyncQueue,
   clearAllLocalData,
+  setIndexedDbScope,
 } from './services/indexedDb';
 
 import { SectionBackground } from './components/SectionBackground';
 import { ASSET_IMAGES } from './assets/images';
 import { FrontValidationAccess } from './components/FrontValidationAccess';
+import { FormAccessGate, type FormAccessSession } from './components/FormAccessGate';
 import preguntasPrellenadasData from './data/preguntasPrellenadas.json';
 
 export type AppStep = 'landing' | 'section' | 'archivos' | 'success';
+type ActiveFormAccess = FormAccessSession;
 
 const getCaptureScope = (programKey: string, programYear: string) =>
   programKey && programYear ? `${programKey.trim()}::${programYear.trim()}` : '';
@@ -134,6 +137,9 @@ export default function App() {
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAccessLoading, setIsAccessLoading] = useState(false);
+  const [formAccess, setFormAccess] = useState<ActiveFormAccess | null>(null);
+  const [isScopeLoading, setIsScopeLoading] = useState(false);
+  const [isAccessPromptOpen, setIsAccessPromptOpen] = useState(false);
 
   const [folioGenerado, setFolioGenerado] = useState<string>('');
   const [fechaFinalizacion, setFechaFinalizacion] = useState<string>('');
@@ -197,8 +203,12 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // 1. Cargar datos locales desde IndexedDB al inicio
+  // Cargar solo el borrador de la asignación autenticada.
   useEffect(() => {
+    if (!formAccess) return;
+    setIndexedDbScope(formAccess.credentialId, formAccess.clave, formAccess.anio);
+    let isMounted = true;
+
     const loadStoredData = async () => {
       try {
         const [savedUser, savedResp, savedArch, meta, pendingQueue] = await Promise.all([
@@ -209,39 +219,73 @@ export default function App() {
           getSyncQueue(),
         ]);
 
-        if (savedUser) {
-          setUsuario(savedUser);
-        }
+        if (!isMounted) return;
+        setUsuario(savedUser ?? {
+          nombre: '',
+          puesto: '',
+          correo: '',
+          telefono: '',
+          entidadDependencia: '',
+          fechaCaptura: new Date().toISOString().split('T')[0],
+        });
 
-        if (savedResp && Object.keys(savedResp).length > 0) {
-          const respuestasGuardadas = { ...savedResp };
-          if (respuestasGuardadas['10.1'] && !respuestasGuardadas['11']) {
-            respuestasGuardadas['11'] = {
-              ...respuestasGuardadas['10.1'],
-              preguntaId: '11',
-              pregunta: '11. Durante año reportado, ¿qué otras dependencias participaron como responsables en la operación del programa?',
-            };
+        const respuestasGuardadas = { ...savedResp };
+        Object.entries(formAccess.answers).forEach(([questionId, remoteAnswer]) => {
+          const localAnswer = respuestasGuardadas[questionId];
+          const localTimestamp = Date.parse(localAnswer?.fechaActualizacion ?? '');
+          const remoteTimestamp = Date.parse(remoteAnswer.fechaActualizacion ?? '');
+          if (!localAnswer || !Number.isFinite(localTimestamp) || remoteTimestamp >= localTimestamp) {
+            respuestasGuardadas[questionId] = remoteAnswer;
           }
-          delete respuestasGuardadas['10.1'];
-          const reconciledAnswers = reconcilePrefilledAnswers(
-            respuestasGuardadas,
-            String(respuestasGuardadas['clave_programa']?.valor ?? '').trim(),
-            String(respuestasGuardadas['anio_captura']?.valor ?? '').trim()
-          );
-          setRespuestas(reconciledAnswers);
-          Object.entries(reconciledAnswers).forEach(([questionId, answer]) => {
-            if (JSON.stringify(answer) !== JSON.stringify(respuestasGuardadas[questionId])) {
-              void ApiService.saveRespuesta(answer);
-            }
-          });
-
-          // Sincronizar datos de capturista con las preguntas 1 a 5 si existen
-          if (savedResp['1']?.valor) setUsuario((u) => ({ ...u, nombre: savedResp['1'].valor }));
-          if (savedResp['2']?.valor) setUsuario((u) => ({ ...u, puesto: savedResp['2'].valor }));
-          if (savedResp['3']?.valor) setUsuario((u) => ({ ...u, correo: savedResp['3'].valor }));
-          if (savedResp['4']?.valor) setUsuario((u) => ({ ...u, telefono: savedResp['4'].valor }));
-          if (savedResp['5']?.valor) setUsuario((u) => ({ ...u, fechaCaptura: savedResp['5'].valor }));
+        });
+        if (respuestasGuardadas['10.1'] && !respuestasGuardadas['11']) {
+          respuestasGuardadas['11'] = {
+            ...respuestasGuardadas['10.1'],
+            preguntaId: '11',
+            pregunta: '11. Durante año reportado, ¿qué otras dependencias participaron como responsables en la operación del programa?',
+          };
         }
+        delete respuestasGuardadas['10.1'];
+        const timestamp = new Date().toISOString();
+        const respuestasAsignadas = {
+          ...respuestasGuardadas,
+          clave_programa: {
+            preguntaId: 'clave_programa',
+            seccionId: 'datos_generales',
+            pregunta: 'Clave del programa',
+            valor: formAccess.clave,
+            fechaActualizacion: timestamp,
+            estado: 'guardado' as const,
+          },
+          anio_captura: {
+            preguntaId: 'anio_captura',
+            seccionId: 'datos_generales',
+            pregunta: 'Año del programa',
+            valor: formAccess.anio,
+            fechaActualizacion: timestamp,
+            estado: 'guardado' as const,
+          },
+        };
+        const reconciledAnswers = reconcilePrefilledAnswers(
+          respuestasAsignadas,
+          formAccess.clave,
+          formAccess.anio,
+        );
+        setRespuestas(reconciledAnswers);
+        Object.entries(reconciledAnswers).forEach(([questionId, answer]) => {
+          if (questionId !== 'clave_programa' && questionId !== 'anio_captura'
+            && JSON.stringify(answer) !== JSON.stringify(respuestasGuardadas[questionId])) {
+            void ApiService.saveRespuesta(answer);
+          }
+        });
+        await Promise.all(Object.values(reconciledAnswers).map(saveRespuestaLocal));
+
+        // Sincronizar datos de capturista con las preguntas 1 a 5 si existen
+        if (savedResp['1']?.valor) setUsuario((u) => ({ ...u, nombre: savedResp['1'].valor }));
+        if (savedResp['2']?.valor) setUsuario((u) => ({ ...u, puesto: savedResp['2'].valor }));
+        if (savedResp['3']?.valor) setUsuario((u) => ({ ...u, correo: savedResp['3'].valor }));
+        if (savedResp['4']?.valor) setUsuario((u) => ({ ...u, telefono: savedResp['4'].valor }));
+        if (savedResp['5']?.valor) setUsuario((u) => ({ ...u, fechaCaptura: savedResp['5'].valor }));
 
         if (savedArch && savedArch.length > 0) {
           setArchivos(savedArch);
@@ -252,18 +296,26 @@ export default function App() {
           if (meta.folio) setFolioGenerado(meta.folio);
           if (meta.fechaFinalizacion) setFechaFinalizacion(meta.fechaFinalizacion);
         }
+        setSubmittedSectionsByScope({
+          [getCaptureScope(formAccess.clave, formAccess.anio)]: formAccess.submittedSections,
+        });
 
         setEstadoConexion((prev) => ({
           ...prev,
           elementosPendientes: pendingQueue.length,
         }));
+        setIsScopeLoading(false);
       } catch (err) {
         console.warn('Error al cargar datos desde IndexedDB', err);
+        if (isMounted) setIsScopeLoading(false);
       }
     };
 
-    loadStoredData();
-  }, []);
+    void loadStoredData();
+    return () => {
+      isMounted = false;
+    };
+  }, [formAccess]);
 
   // 2. Monitoreo de conectividad real
   const checkConnectivity = useCallback(async () => {
@@ -424,6 +476,58 @@ export default function App() {
 
   const handleClaveProgramaChange = (clave: string) => {
     handleRespuestaChange('clave_programa', 'datos_generales', 'Clave del programa', clave);
+  };
+
+  const handleFormAccessSelect = (access: FormAccessSession) => {
+    ApiService.setFormAccess({ credentialId: access.credentialId, password: access.password });
+    setIsScopeLoading(true);
+    setRespuestas({});
+    setArchivos([]);
+    setUsuario({
+      nombre: '',
+      puesto: '',
+      correo: '',
+      telefono: '',
+      entidadDependencia: '',
+      fechaCaptura: new Date().toISOString().split('T')[0],
+    });
+    setSubmittedSectionsByScope({});
+    setFolioGenerado('');
+    setFechaFinalizacion('');
+    setCurrentSectionIndex(0);
+    setStep('section');
+    setIsAdminView(false);
+    setFormAccess(access);
+    setIsAccessPromptOpen(false);
+  };
+
+  const handleFormSignOut = async () => {
+    if (!formAccess || !window.confirm('¿Cerrar sesión? El borrador de esta clave y año quedará guardado para tu cuenta.')) return;
+
+    Object.values(saveTimeoutRef.current).forEach(clearTimeout);
+    saveTimeoutRef.current = {};
+    await Promise.all([
+      ...Object.values(respuestas).map((answer) => saveRespuestaLocal(answer)),
+      saveDatosUsuarioLocal(usuario),
+    ]);
+    ApiService.setFormAccess(null);
+    setFormAccess(null);
+    setIsScopeLoading(false);
+    setIsAccessPromptOpen(false);
+    setIsAdminView(false);
+    setRespuestas({});
+    setArchivos([]);
+    setUsuario({
+      nombre: '',
+      puesto: '',
+      correo: '',
+      telefono: '',
+      entidadDependencia: '',
+      fechaCaptura: new Date().toISOString().split('T')[0],
+    });
+    setSubmittedSectionsByScope({});
+    setCurrentSectionIndex(0);
+    setStep('landing');
   };
 
   const handleResetProgramSelection = async () => {
@@ -615,6 +719,10 @@ export default function App() {
       : completedSections.filter((id) => id !== sectionId);
     const updatedSectionsByScope = { ...submittedSectionsByScope, [captureScope]: updatedSections };
     setSubmittedSectionsByScope(updatedSectionsByScope);
+    const progressResult = await ApiService.saveSubmittedSections(updatedSections);
+    if (progressResult.error) {
+      addToast('El avance se guardó localmente; se reintentará la sincronización.', 'warning');
+    }
     const nextIndex = currentSectionIndex + 1;
 
     if (nextIndex >= SECCIONES_CUESTIONARIO.length) {
@@ -662,6 +770,7 @@ export default function App() {
         usuario,
         respuestas,
         archivos,
+        submittedSections: submittedSectionsByScope[captureScope] ?? [],
       });
 
       setFolioGenerado(result.folio);
@@ -685,15 +794,7 @@ export default function App() {
 
   // 9. Reiniciar captura
   const handleRestart = async () => {
-    if (window.confirm('¿Está seguro de iniciar una nueva captura? Se limpiará la memoria local para un nuevo registro.')) {
-      await clearAllLocalData();
-      setRespuestas({});
-      setSubmittedSectionsByScope({});
-      setArchivos([]);
-      setCurrentSectionIndex(0);
-      setFolioGenerado('');
-      setStep('landing');
-    }
+    await handleFormSignOut();
   };
 
   // Progreso para las seis secciones y archivos.
@@ -750,13 +851,14 @@ export default function App() {
         seccionActualTitulo={step === 'section' ? seccionActual?.titulo : undefined}
         onManualSync={ApiService.usesSupabase() ? undefined : handleManualSync}
         usesSupabase={ApiService.usesSupabase()}
-        onAdminAccess={() => setIsAdminView(true)}
+        onAdminAccess={formAccess ? undefined : () => setIsAdminView(true)}
+        onFormSignOut={formAccess && !isAdminView ? handleFormSignOut : undefined}
         isLanding={step === 'landing' && !isAdminView}
-        showInstructions={!isAdminView && step === 'section'}
+        showInstructions={Boolean(formAccess) && !isAdminView && step === 'section'}
       />
 
       {/* Navegación por secciones y archivos */}
-      {!isAdminView && step !== 'landing' && step !== 'success' && (
+      {!isAdminView && formAccess && step !== 'landing' && step !== 'success' && (
         <ProgressBar
           seccionActualIndex={step === 'archivos' ? SECCIONES_CUESTIONARIO.length : currentSectionIndex}
           totalSecciones={totalPasos}
@@ -772,9 +874,23 @@ export default function App() {
       )}
 
       {/* Contenido Principal con Card Transparente sobre Fondo Opacado */}
-      <main className="relative z-10 flex-1 w-full max-w-7xl mx-auto">
+      <main className={`relative ${isAdminView ? 'z-[100]' : 'z-10'} flex-1 w-full max-w-7xl mx-auto`}>
         {isAdminView ? (
           <FrontValidationAccess onClose={() => setIsAdminView(false)} />
+        ) : !formAccess ? (
+          isAccessPromptOpen ? (
+            <FormAccessGate
+              onSelect={handleFormAccessSelect}
+              onCancel={() => setIsAccessPromptOpen(false)}
+            />
+          ) : (
+            <LandingView
+              onStart={() => setIsAccessPromptOpen(true)}
+              onDataAccess={() => setIsAdminView(true)}
+            />
+          )
+        ) : isScopeLoading ? (
+          <LoadingOverlay title="Preparando captura" message="Cargando el borrador de esta asignación" />
         ) : (
           <>
         {step === 'landing' && (
@@ -795,6 +911,7 @@ export default function App() {
             onAnioProgramaChange={(valor) =>
               handleRespuestaChange('anio_captura', 'datos_generales', 'Año del programa', valor)
             }
+            canResetProgramSelection={false}
             onResetProgramSelection={handleResetProgramSelection}
             onSaveAndNext={(sectionComplete) => handleSaveAndNext(seccionActual.id, sectionComplete)}
             onPreviousSection={handlePreviousSection}

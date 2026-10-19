@@ -1,9 +1,24 @@
 import { DatosUsuario, RespuestaItem, ArchivoAdjunto } from '../types/form';
 
-const DB_NAME = 'inegi_inventario_federal_db';
+const DB_BASE_NAME = 'inegi_inventario_federal_db';
 const DB_VERSION = 1;
 
+let dbName = DB_BASE_NAME;
 let dbPromise: Promise<IDBDatabase> | null = null;
+
+export function setIndexedDbScope(userId: string, clave: string, anio: string): void {
+  const nextDbName = `${DB_BASE_NAME}_${userId}_${clave}_${anio}`;
+  if (nextDbName === dbName) return;
+
+  const previousDb = dbPromise;
+  dbName = nextDbName;
+  dbPromise = null;
+  void previousDb?.then((db) => db.close()).catch(() => undefined);
+}
+
+function getLocalStorageKey(key: string): string {
+  return `${dbName}_${key}`;
+}
 
 function getDB(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise;
@@ -14,7 +29,7 @@ function getDB(): Promise<IDBDatabase> {
       return;
     }
 
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    const request = indexedDB.open(dbName, DB_VERSION);
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
@@ -63,9 +78,9 @@ export async function saveRespuestaLocal(respuesta: RespuestaItem): Promise<void
   } catch (err) {
     console.warn('Fallback guardado local en localStorage', err);
     try {
-      const existing = JSON.parse(localStorage.getItem('inegi_respuestas') || '{}');
+      const existing = JSON.parse(localStorage.getItem(getLocalStorageKey('inegi_respuestas')) || '{}');
       existing[respuesta.preguntaId] = respuesta;
-      localStorage.setItem('inegi_respuestas', JSON.stringify(existing));
+      localStorage.setItem(getLocalStorageKey('inegi_respuestas'), JSON.stringify(existing));
     } catch (e) {
       // ignore
     }
@@ -91,7 +106,7 @@ export async function getAllRespuestasLocal(): Promise<Record<string, RespuestaI
     });
   } catch (err) {
     try {
-      return JSON.parse(localStorage.getItem('inegi_respuestas') || '{}');
+      return JSON.parse(localStorage.getItem(getLocalStorageKey('inegi_respuestas')) || '{}');
     } catch {
       return {};
     }
@@ -109,7 +124,7 @@ export async function saveDatosUsuarioLocal(datos: DatosUsuario): Promise<void> 
       req.onerror = () => reject(req.error);
     });
   } catch (err) {
-    localStorage.setItem('inegi_usuario', JSON.stringify(datos));
+    localStorage.setItem(getLocalStorageKey('inegi_usuario'), JSON.stringify(datos));
   }
 }
 
@@ -132,7 +147,7 @@ export async function getDatosUsuarioLocal(): Promise<DatosUsuario | null> {
     });
   } catch (err) {
     try {
-      const raw = localStorage.getItem('inegi_usuario');
+      const raw = localStorage.getItem(getLocalStorageKey('inegi_usuario'));
       return raw ? JSON.parse(raw) : null;
     } catch {
       return null;
@@ -196,7 +211,7 @@ export async function saveMetaFormulario(data: any): Promise<void> {
       req.onerror = () => reject(req.error);
     });
   } catch {
-    localStorage.setItem('inegi_meta', JSON.stringify(data));
+    localStorage.setItem(getLocalStorageKey('inegi_meta'), JSON.stringify(data));
   }
 }
 
@@ -212,7 +227,7 @@ export async function getMetaFormulario(): Promise<any> {
     });
   } catch {
     try {
-      const raw = localStorage.getItem('inegi_meta');
+      const raw = localStorage.getItem(getLocalStorageKey('inegi_meta'));
       return raw ? JSON.parse(raw) : null;
     } catch {
       return null;
@@ -273,9 +288,9 @@ export async function clearAllLocalData(): Promise<void> {
       const tx = db.transaction(storeName, 'readwrite');
       tx.objectStore(storeName).clear();
     }
-    localStorage.removeItem('inegi_respuestas');
-    localStorage.removeItem('inegi_usuario');
-    localStorage.removeItem('inegi_meta');
+    localStorage.removeItem(getLocalStorageKey('inegi_respuestas'));
+    localStorage.removeItem(getLocalStorageKey('inegi_usuario'));
+    localStorage.removeItem(getLocalStorageKey('inegi_meta'));
   } catch {
     // ignore
   }

@@ -109,16 +109,19 @@ python manage.py runserver 8000
 
 ### 3. Configuración en Supabase
 1. Ejecutar `supabase_schema.sql` en el SQL Editor de tu proyecto Supabase.
-2. Ejecutar `supabase_pages_rpc.sql` para crear las funciones de verificación y registro atómico. RLS queda habilitado y la app solo expone la función de envío; no se usa la clave `service_role` en el navegador.
+2. Ejecutar `supabase_pages_rpc.sql` para configurar RLS y retirar el registrador anónimo anterior.
 3. Para desarrollo local, configurar `.env` con:
    ```bash
        VITE_SUPABASE_URL="https://tu-proyecto.supabase.co"
        VITE_SUPABASE_ANON_KEY="tu-anon-public-key"
    ```
 4. Para GitHub Pages, crear las variables `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` en **Settings > Secrets and variables > Actions > Variables** del repositorio. El workflow las inyecta al compilar. No agregar `service_role` al frontend ni a las variables `VITE_`.
-5. Para mostrar las respuestas reales en la pestaña **Tabla respuestas**, ejecutar `supabase_reporte_rpc.sql` en el SQL Editor (no requiere CLI ni token personal). Después, dar de alta el usuario del reporte con el `insert` comentado en ese archivo, usando una contraseña fuerte. La función `obtener_reporte_relacional` valida el acceso dentro de la base (hash bcrypt y bloqueo tras 8 intentos fallidos) y relaciona `formularios`, `respuestas` y `archivos`. Nunca agregues la service role key a `.env` del frontend, GitHub Pages ni al bundle.
+5. Ejecutar `supabase_reporte_rpc.sql` para habilitar el reporte con contraseña hasheada; el usuario administrativo es `add.31` y se configura en `private.reporte_acceso`.
+6. Ejecutar `supabase_form_access.sql` al final. Añade titulares/accesos, autosave y finalización por titular+clave+año; conserva los formularios anteriores sin asignarles otro titular. Cada entrada válida crea un evento en `private.form_access_events`, asociado al titular, clave, año y cuestionario. El formulario muestra la contraseña al pulsar **Comenzar**. En el reporte, `add.31` puede crear, revocar o restablecer asignaciones. Cada clave/año tiene una contraseña independiente; solo se muestra al crearla o restablecerla, porque Supabase conserva únicamente el hash.
 
-El envío a Supabase ocurre al finalizar el formulario. Los adjuntos se guardan localmente y la base recibe sus metadatos; el binario requiere configurar almacenamiento por separado.
+La RPC de inicio y las RPC de guardado verifican la contraseña en Supabase y fijan el titular, clave y año del registro. Las tablas privadas no son consultables desde el cliente; el rol anónimo solo puede invocar las funciones que validan una contraseña. Nunca agregues `service_role` a `.env` del frontend, GitHub Pages ni al bundle.
+
+Cada respuesta se guarda como avance en Supabase para su asignación; el envío final bloquea únicamente ese registro. El reporte consulta al ingresar y después solo al pulsar **Actualizar ahora**. Los adjuntos se guardan localmente y la base recibe sus metadatos; el binario requiere configurar almacenamiento por separado.
 
 Para abrir el visor administrativo, toca cinco veces seguidas el logo IMSS-BIENESTAR. Inicia sesión con una cuenta creada manualmente en Supabase Auth cuyo `app_metadata.role` sea `admin`. Desactiva el registro público de usuarios; el visor solo permite leer registros a ese rol mediante RLS.
 

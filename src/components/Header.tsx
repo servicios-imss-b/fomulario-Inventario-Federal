@@ -1,6 +1,6 @@
 import React from 'react';
 import { EstadoConexion } from '../types/form';
-import { Wifi, WifiOff, RefreshCw, CheckCircle, ShieldCheck, Database, X, ChevronDown, Lock } from 'lucide-react';
+import { Wifi, WifiOff, RefreshCw, CheckCircle, ShieldCheck, Database, X, ChevronDown, Lock, LogOut } from 'lucide-react';
 import logoNacional from '../../../imagenes/logonacional.svg';
 import eggsGif from '../../../imagenes/eggs.gif';
 
@@ -10,6 +10,7 @@ interface HeaderProps {
   seccionActualTitulo?: string;
   onManualSync?: () => void;
   onAdminAccess?: () => void;
+  onFormSignOut?: () => void;
   isLanding?: boolean;
   usesSupabase?: boolean;
   showInstructions: boolean;
@@ -136,6 +137,7 @@ export const Header: React.FC<HeaderProps> = ({
   seccionActualTitulo,
   onManualSync,
   onAdminAccess,
+  onFormSignOut,
   isLanding = false,
   usesSupabase = false,
   showInstructions,
@@ -291,6 +293,18 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Estado de Conexión, Guardado y Sincronización */}
           <div className="flex items-center space-x-2 sm:space-x-3">
+            {onFormSignOut && (
+              <button
+                type="button"
+                onClick={onFormSignOut}
+                aria-label="Cerrar sesión del formulario"
+                title="Cerrar sesión"
+                className="inline-flex h-9 items-center gap-1.5 rounded-md border border-white/20 px-2 text-xs font-medium text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A57F2C] sm:px-2.5"
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="hidden sm:inline">Cerrar sesión</span>
+              </button>
+            )}
             {/* Indicador de Guardado */}
             <div className={`${isLanding ? 'hidden' : 'hidden sm:flex'} items-center px-2.5 py-1 rounded-full text-xs font-medium border border-white/20 bg-white/5`}>
               {estadoGuardado === 'guardando' && (

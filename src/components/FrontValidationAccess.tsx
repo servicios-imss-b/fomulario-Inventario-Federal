@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, LockKeyhole } from 'lucide-react';
 import { supabaseClient } from '../services/supabaseClient';
+import { FormAccessAdmin } from './admin/FormAccessAdmin';
 
 interface FrontValidationAccessProps {
   onClose: () => void;
@@ -9,23 +10,7 @@ interface FrontValidationAccessProps {
 type ReportRow = Record<string, string | number>;
 type ReportResult = { rows: ReportRow[] } | { error: string; authFailed: boolean };
 
-const REFRESH_INTERVAL_MS = 30_000;
-
 async function fetchReport(username: string, password: string): Promise<ReportResult> {
-  const serverResponse = await fetch(`${import.meta.env.BASE_URL}api/reporte-relacional`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
-  }).catch(() => null);
-  const serverData = serverResponse?.headers.get('content-type')?.includes('application/json')
-    ? await serverResponse.json().catch(() => null)
-    : null;
-  if (serverData?.success && Array.isArray(serverData.rows)) return { rows: serverData.rows as ReportRow[] };
-  if (serverResponse?.status === 401 || serverResponse?.status === 429) {
-    return { error: serverData?.error || 'Usuario o contraseña incorrectos.', authFailed: true };
-  }
-
-  // Sin servidor (GitHub Pages): la función SQL valida el acceso dentro de Supabase.
   if (!supabaseClient) return { error: 'No está configurada la conexión a Supabase.', authFailed: false };
   const { data, error } = await supabaseClient.rpc('obtener_reporte_relacional', { p_usuario: username, p_password: password });
   if (error) return { error: 'No fue posible consultar el reporte en Supabase.', authFailed: false };
@@ -41,6 +26,7 @@ export function FrontValidationAccess({ onClose }: FrontValidationAccessProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isManagingAccess, setIsManagingAccess] = useState(false);
   const [reportRows, setReportRows] = useState<ReportRow[]>([]);
   const [reportDataMessage, setReportDataMessage] = useState('');
   const [updatedAt, setUpdatedAt] = useState('');
@@ -83,12 +69,6 @@ export function FrontValidationAccess({ onClose }: FrontValidationAccessProps) {
     return () => window.removeEventListener('message', handleReportMessage);
   }, [isAuthenticated, reportRows, reportDataMessage, updatedAt, refreshReport]);
 
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    const timer = window.setInterval(() => void refreshReport(), REFRESH_INTERVAL_MS);
-    return () => window.clearInterval(timer);
-  }, [isAuthenticated, refreshReport]);
-
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
@@ -113,17 +93,37 @@ export function FrontValidationAccess({ onClose }: FrontValidationAccessProps) {
   };
 
   if (isAuthenticated) {
+    const isSuperUser = username.trim().toLowerCase() === 'add.31';
     return (
-      <iframe
-        ref={iframeRef}
-        title="Reporte de situación hospitalaria"
-        src={`${import.meta.env.BASE_URL}reporte-new/index.html`}
-        onLoad={() => iframeRef.current?.contentWindow?.postMessage(
-          { type: 'supabase-relational-data', rows: reportRows, error: reportDataMessage, updatedAt },
-          window.location.origin,
+      <div className="fixed inset-0 z-[100]">
+        <iframe
+          ref={iframeRef}
+          title="Reporte de situación hospitalaria"
+          src={`${import.meta.env.BASE_URL}reporte-new/index.html`}
+          onLoad={() => iframeRef.current?.contentWindow?.postMessage(
+            { type: 'supabase-relational-data', rows: reportRows, error: reportDataMessage, updatedAt },
+            window.location.origin,
+          )}
+          className="absolute inset-0 block h-full w-full border-0 bg-gray-50"
+        />
+        {isSuperUser && !isManagingAccess && (
+          <button
+            type="button"
+            onClick={() => setIsManagingAccess(true)}
+            className="fixed right-4 top-4 z-[110] inline-flex items-center gap-2 rounded-md border border-[#611232] bg-white px-3 py-2 text-xs font-semibold text-[#611232] shadow-lg transition hover:bg-rose-50"
+          >
+            <LockKeyhole className="h-3.5 w-3.5" />
+            Accesos al formulario
+          </button>
         )}
-        className="fixed inset-0 z-[100] block h-dvh w-full border-0 bg-gray-50"
-      />
+        {isSuperUser && isManagingAccess && (
+          <FormAccessAdmin
+            username={credentialsRef.current?.username ?? username}
+            password={credentialsRef.current?.password ?? ''}
+            onClose={() => setIsManagingAccess(false)}
+          />
+        )}
+      </div>
     );
   }
 

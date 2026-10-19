@@ -35,6 +35,7 @@ interface FormSectionViewProps {
   anioPrograma: string;
   onClaveProgramaChange: (valor: string) => void;
   onAnioProgramaChange: (valor: string) => void;
+  canResetProgramSelection?: boolean;
   onResetProgramSelection: () => void;
   onSaveAndNext: (sectionComplete: boolean) => Promise<void>;
   onPreviousSection: () => void;
@@ -49,6 +50,7 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
   anioPrograma,
   onClaveProgramaChange,
   onAnioProgramaChange,
+  canResetProgramSelection = true,
   onResetProgramSelection,
   onSaveAndNext,
   onPreviousSection,
@@ -463,7 +465,7 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
                 Clave y ejercicio fiscal fijos durante toda la captura.
               </p>
             </div>
-            {(clavePrograma || anioPrograma) && (
+            {canResetProgramSelection && (clavePrograma || anioPrograma) && (
               <button
                 type="button"
                 onClick={onResetProgramSelection}
@@ -508,6 +510,9 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
                   <option value="">Selecciona un año</option>
                   <option value="2024">2024</option>
                   <option value="2025">2025</option>
+                  {anioPrograma && !['2024', '2025'].includes(anioPrograma) && (
+                    <option value={anioPrograma}>{anioPrograma}</option>
+                  )}
                 </select>
               </div>
             </div>

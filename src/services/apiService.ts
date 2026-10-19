@@ -9,8 +9,10 @@ import {
 import { supabaseClient } from './supabaseClient';
 
 const API_BASE = '/api';
+type FormAccessCredential = { credentialId: string; password: string };
 
 export class ApiService {
+  private static formAccess: FormAccessCredential | null = null;
   private static isApiAvailable: boolean = true;
   private static lastCheckTime: number = 0;
   private static checkInterval: number = 10000; // 10s
@@ -43,13 +45,36 @@ export class ApiService {
     return Boolean(supabaseClient);
   }
 
-  public static async saveRespuesta(respuesta: RespuestaItem): Promise<{ synced: boolean; error?: string }> {
-    // 1. Siempre guardar en IndexedDB primero
-    await saveRespuestaLocal({ ...respuesta, estado: supabaseClient ? 'pendiente_sync' : 'guardado' });
+  public static setFormAccess(access: FormAccessCredential | null): void {
+    this.formAccess = access;
+  }
 
+  public static async saveRespuesta(respuesta: RespuestaItem): Promise<{ synced: boolean; error?: string }> {
     if (supabaseClient) {
-      return { synced: false, error: 'Se enviará a Supabase al finalizar el formulario.' };
+      await saveRespuestaLocal({ ...respuesta, estado: 'pendiente_sync' });
+      const access = this.formAccess;
+      if (!access) return { synced: false, error: 'Vuelve a validar la contraseÃ±a de acceso.' };
+
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        await enqueueSync({ tipo: 'respuesta', payload: respuesta, fecha: new Date().toISOString() });
+        return { synced: false };
+      }
+
+      try {
+        const { error } = await supabaseClient.rpc('guardar_avance_formulario', {
+          p_password: access.password,
+          p_respuesta: respuesta,
+        });
+        if (error) throw error;
+        await saveRespuestaLocal({ ...respuesta, estado: 'guardado' });
+        return { synced: true };
+      } catch (error) {
+        await enqueueSync({ tipo: 'respuesta', payload: respuesta, fecha: new Date().toISOString() });
+        return { synced: false, error: error instanceof Error ? error.message : 'Guardado localmente; pendiente de sincronizaciÃ³n.' };
+      }
     }
+
+    await saveRespuestaLocal({ ...respuesta, estado: 'guardado' });
 
     // 2. Comprobar si hay conexión con el backend
     const online = await this.checkConnection();
@@ -97,6 +122,35 @@ export class ApiService {
       });
       return { synced: false, error: 'Guardado localmente. Pendiente de sincronización.' };
     }
+  }
+
+  public static async saveSubmittedSections(sections: string[]): Promise<{ synced: boolean; error?: string }> {
+    if (!supabaseClient) return { synced: false, error: 'No hay una conexión de Supabase configurada.' };
+    const access = this.formAccess;
+    if (!access) return { synced: false, error: 'Vuelve a validar la contraseña de acceso.' };
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      await enqueueSync({
+        tipo: 'progreso',
+        payload: { submittedSections: sections },
+        fecha: new Date().toISOString(),
+      });
+      return { synced: false };
+    }
+
+    const { error } = await supabaseClient.rpc('guardar_progreso_formulario', {
+      p_password: access.password,
+      p_submitted_sections: sections,
+    });
+    if (error) {
+      await enqueueSync({
+        tipo: 'progreso',
+        payload: { submittedSections: sections },
+        fecha: new Date().toISOString(),
+      });
+      return { synced: false, error: error.message };
+    }
+    return { synced: true };
   }
 
   public static async saveUsuario(usuario: DatosUsuario): Promise<{ synced: boolean; error?: string }> {
@@ -173,13 +227,41 @@ export class ApiService {
   }
 
   public static async syncPendingQueue(): Promise<number> {
-    if (supabaseClient) return 0;
-
     const online = await this.checkConnection();
     if (!online) return 0;
 
     const queue = await getSyncQueue();
     if (queue.length === 0) return 0;
+
+    if (supabaseClient) {
+      const access = this.formAccess;
+      if (!access) return 0;
+      let syncedCount = 0;
+      for (const item of queue) {
+        try {
+          const result = item.tipo === 'respuesta'
+            ? await supabaseClient.rpc('guardar_avance_formulario', {
+                p_password: access.password,
+                p_respuesta: item.payload,
+              })
+            : item.tipo === 'progreso'
+              ? await supabaseClient.rpc('guardar_progreso_formulario', {
+                  p_password: access.password,
+                  p_submitted_sections: item.payload.submittedSections,
+                })
+              : null;
+          if (!result || result.error) continue;
+          if (item.tipo === 'respuesta') {
+            await saveRespuestaLocal({ ...item.payload, estado: 'guardado' });
+          }
+          await removeSyncItem(item.id);
+          syncedCount++;
+        } catch {
+          continue;
+        }
+      }
+      return syncedCount;
+    }
 
     let syncedCount = 0;
     try {
@@ -218,16 +300,20 @@ export class ApiService {
     usuario: DatosUsuario;
     respuestas: Record<string, RespuestaItem>;
     archivos: ArchivoAdjunto[];
+    submittedSections?: string[];
   }): Promise<{ success: boolean; folio: string; fecha: string }> {
     const timestamp = new Date().toISOString();
     const fallbackFolio = `INEGI-IFPADS-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
 
     if (supabaseClient) {
+      const access = this.formAccess;
+      if (!access) throw new Error('La sesiÃ³n de captura expirÃ³. Vuelve a ingresar la contraseÃ±a.');
       const archivosMetadata = payload.archivos.map(({ dataBase64: _dataBase64, ...archivo }) => archivo);
       const respuestasGuardadas = Object.fromEntries(
         Object.entries(payload.respuestas).map(([id, respuesta]) => [id, { ...respuesta, estado: 'guardado' as const }]),
       );
       const { data, error } = await supabaseClient.rpc('registrar_formulario', {
+        p_password: access.password,
         p_payload: {
           ...payload,
           respuestas: respuestasGuardadas,

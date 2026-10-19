@@ -589,7 +589,7 @@ app.post('/api/reporte-relacional', async (req: Request, res: Response) => {
   try {
     const forms = await readAllPages<any>((from, to) => supabaseAdmin
       .from('formularios')
-      .select('id, folio, usuario_nombre, usuario_puesto, usuario_correo, usuario_telefono, usuario_entidad, fecha_captura, fecha_creacion, fecha_finalizacion, estado')
+      .select('id, folio, usuario_nombre, usuario_puesto, usuario_correo, titular_nombre, titular_correo, clave_programa, anio_programa, usuario_telefono, usuario_entidad, fecha_captura, fecha_creacion, fecha_finalizacion, estado')
       .order('fecha_creacion', { ascending: false })
       .range(from, to));
     const answers = await readAllPages<any>((from, to) => supabaseAdmin
@@ -633,6 +633,8 @@ app.post('/api/reporte-relacional', async (req: Request, res: Response) => {
         usuario_nombre: form.usuario_nombre ?? '',
         usuario_puesto: form.usuario_puesto ?? '',
         usuario_correo: form.usuario_correo ?? '',
+        titular_nombre: form.titular_nombre ?? '',
+        titular_correo: form.titular_correo ?? '',
         usuario_telefono: form.usuario_telefono ?? '',
         usuario_entidad: form.usuario_entidad ?? '',
         fecha_captura: form.fecha_captura ?? '',

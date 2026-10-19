@@ -15,6 +15,11 @@ create table if not exists private.reporte_acceso (
 
 revoke all on private.reporte_acceso from public, anon, authenticated;
 
+alter table public.formularios add column if not exists titular_nombre varchar(300);
+alter table public.formularios add column if not exists titular_correo varchar(320);
+alter table public.formularios add column if not exists clave_programa varchar(20);
+alter table public.formularios add column if not exists anio_programa varchar(4);
+
 -- Alta o cambio de credenciales (sustituye los valores antes de ejecutar; no guardes la contraseña en el repositorio):
 -- insert into private.reporte_acceso (usuario, password_hash)
 -- values ('USUARIO', extensions.crypt('CONTRASEÑA_FUERTE', extensions.gen_salt('bf')))
@@ -85,6 +90,10 @@ begin
            'usuario_nombre', coalesce(f.usuario_nombre, ''),
            'usuario_puesto', coalesce(f.usuario_puesto, ''),
            'usuario_correo', coalesce(f.usuario_correo, ''),
+           'titular_nombre', coalesce(f.titular_nombre, ''),
+           'titular_correo', coalesce(f.titular_correo, ''),
+           'clave_programa', coalesce(f.clave_programa, d.programa, ''),
+           'anio_programa', coalesce(f.anio_programa, d.anio, ''),
            'usuario_telefono', coalesce(f.usuario_telefono, ''),
            'usuario_entidad', coalesce(f.usuario_entidad, ''),
            'fecha_captura', coalesce(f.fecha_captura::text, ''),
