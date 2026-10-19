@@ -67,7 +67,7 @@ export const SECCIONES_CUESTIONARIO: SeccionConfig[] = [
         requerida: true,
         maxCaracteres: 300,
         placeholder: 'usuario@imssbienestar.gob.mx',
-        instruccion: 'Use su correo institucional @imssbienestar.gob.mx. Si causó baja institucional, marque la opción de correo personal para contacto.',
+        instruccion: 'Use su correo institucional @imssbienestar.gob.mx.',
       },
       {
         id: '4',

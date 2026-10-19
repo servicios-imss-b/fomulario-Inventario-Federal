@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 
 const CONTACT_EMAIL_QUESTION_IDS = new Set(['3', '9']);
+const PERSONAL_EMAIL_EXCEPTION_QUESTION_IDS = new Set(['9']);
 const PHONE_QUESTION_IDS = new Set(['4', '8']);
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const INSTITUTIONAL_EMAIL_PATTERN = /^[^\s@]+@imssbienestar\.gob\.mx$/i;
@@ -123,7 +124,8 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
     if (CONTACT_EMAIL_QUESTION_IDS.has(pregunta.id)) {
       const email = String(valor).trim();
       return EMAIL_PATTERN.test(email) && (
-        INSTITUTIONAL_EMAIL_PATTERN.test(email) || Boolean(respuesta?.correoPersonalPorBaja)
+        INSTITUTIONAL_EMAIL_PATTERN.test(email)
+        || (PERSONAL_EMAIL_EXCEPTION_QUESTION_IDS.has(pregunta.id) && Boolean(respuesta?.correoPersonalPorBaja))
       );
     }
     if (PHONE_QUESTION_IDS.has(pregunta.id)) {
@@ -179,8 +181,11 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
       const email = String(respuesta?.valor ?? '').trim();
       if (!email) return 'Esta pregunta es obligatoria.';
       if (!EMAIL_PATTERN.test(email)) return 'Ingresa un correo electrónico válido.';
-      if (!INSTITUTIONAL_EMAIL_PATTERN.test(email) && !respuesta?.correoPersonalPorBaja) {
-        return 'Usa @imssbienestar.gob.mx o marca la excepción por baja institucional.';
+      if (!INSTITUTIONAL_EMAIL_PATTERN.test(email)
+        && !(PERSONAL_EMAIL_EXCEPTION_QUESTION_IDS.has(pregunta.id) && respuesta?.correoPersonalPorBaja)) {
+        return PERSONAL_EMAIL_EXCEPTION_QUESTION_IDS.has(pregunta.id)
+          ? 'Usa @imssbienestar.gob.mx o marca la excepción por baja institucional.'
+          : 'Usa un correo institucional @imssbienestar.gob.mx.';
       }
     }
     if (PHONE_QUESTION_IDS.has(pregunta.id)) {
@@ -256,8 +261,11 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
     const formatError = isContactEmail && emailValue
       ? !EMAIL_PATTERN.test(emailValue)
         ? 'Ingresa un correo electrónico válido.'
-        : !INSTITUTIONAL_EMAIL_PATTERN.test(emailValue) && !currentResp?.correoPersonalPorBaja
-          ? 'Usa @imssbienestar.gob.mx o marca la excepción por baja institucional.'
+        : !INSTITUTIONAL_EMAIL_PATTERN.test(emailValue)
+          && !(PERSONAL_EMAIL_EXCEPTION_QUESTION_IDS.has(preg.id) && currentResp?.correoPersonalPorBaja)
+          ? PERSONAL_EMAIL_EXCEPTION_QUESTION_IDS.has(preg.id)
+            ? 'Usa @imssbienestar.gob.mx o marca la excepción por baja institucional.'
+            : 'Usa un correo institucional @imssbienestar.gob.mx.'
           : undefined
       : undefined;
     const phoneDigitCount = String(valor ?? '').replace(/\D/g, '').length;

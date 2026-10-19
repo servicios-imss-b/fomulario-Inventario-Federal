@@ -253,7 +253,7 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
             <div className="min-w-0 leading-tight">
               <h1 className="truncate text-xs font-semibold text-white sm:text-sm">
-                Cuestionario de equipamiento
+                Cuestionario Inventario Federal
               </h1>
             </div>
             {showInstructions && (

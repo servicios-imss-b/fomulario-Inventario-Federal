@@ -88,7 +88,7 @@ export const TextQuestion: React.FC<TextQuestionProps> = ({
             error ? 'border-rose-500 focus:border-rose-400 focus:ring-rose-500/20' : ''
           }`}
         />
-        {esCorreoContacto && (
+        {pregunta.id === '9' && (
           <label className="mt-2 flex items-start gap-2 text-xs leading-relaxed text-stone-300">
             <input
               type="checkbox"
