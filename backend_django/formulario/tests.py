@@ -51,7 +51,7 @@ class FormularioBackendTests(TestCase):
         self.assertEqual(len(Respuesta.objects.get(pregunta_id='10').respuesta), 478)
 
     def test_validacion_extension_archivo(self):
-        """Rechaza extensiones no autorizadas (solo se aceptan .pdf, .xls, .xlsx)"""
+        """Rechaza extensiones ajenas al allowlist PDF, Word y Excel."""
         payload = {
             "nombre": "script_peligroso.exe",
             "tipo": "application/x-msdownload",

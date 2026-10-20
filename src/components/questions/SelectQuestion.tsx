@@ -7,6 +7,7 @@ interface SelectQuestionProps {
   valor: string;
   fuente?: string;
   error?: string;
+  disabled?: boolean;
   onChange: (valor: string, fuente?: string) => void;
 }
 
@@ -15,6 +16,7 @@ export const SelectQuestion: React.FC<SelectQuestionProps> = ({
   valor = '',
   fuente = '',
   error,
+  disabled = false,
   onChange,
 }) => {
   const [mostrarFuente, setMostrarFuente] = React.useState(Boolean(fuente));
@@ -54,10 +56,11 @@ export const SelectQuestion: React.FC<SelectQuestionProps> = ({
         <select
           id={`preg_${pregunta.id}`}
           value={valor || ''}
+          disabled={disabled}
           onChange={(e) => onChange(e.target.value, fuente)}
-          className={`animated-select animated-select--custom-icon w-full appearance-none px-3.5 py-2.5 rounded-lg glass-input text-sm text-stone-100 cursor-pointer pr-10 ${
-            error ? 'border-rose-500 focus:border-rose-400' : ''
-          }`}
+          className={`animated-select animated-select--custom-icon w-full appearance-none px-3.5 py-2.5 rounded-lg glass-input text-sm text-stone-100 pr-10 ${
+            disabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
+          } ${error ? 'border-rose-500 focus:border-rose-400' : ''}`}
         >
           <option value="" disabled className="bg-[#002F2A] text-stone-400">
             Seleccione una opción ▾

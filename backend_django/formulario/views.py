@@ -28,7 +28,7 @@ class FormularioInfoView(APIView):
             "titulo": "Instrumento de captación del Inventario Federal de Programa y Acciones de Desarrollo Social 2024 y 2025",
             "institucion": "INSTITUTO NACIONAL DE ESTADÍSTICA Y GEOGRAFÍA (INEGI)",
             "max_caracteres_abiertas": 300,
-            "archivos_permitidos": [".pdf", ".xls", ".xlsx"],
+            "archivos_permitidos": [".pdf", ".doc", ".docx", ".xls", ".xlsx"],
             "tamanio_maximo_mb": 15
         })
 

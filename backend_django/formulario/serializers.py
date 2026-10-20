@@ -52,10 +52,10 @@ class ArchivoAdjuntoSerializer(serializers.ModelSerializer):
         if not ext and nombre:
             ext = '.' + nombre.split('.')[-1].lower()
 
-        allowed = ['.pdf', '.xls', '.xlsx']
+        allowed = ['.pdf', '.doc', '.docx', '.xls', '.xlsx']
         if ext not in allowed:
             raise serializers.ValidationError(
-                {"extension": "Este tipo de archivo no está permitido. Solo se aceptan PDF (.pdf) y Excel (.xls, .xlsx)."}
+                {"extension": "Tipo no permitido. Solo se aceptan PDF, Word (.doc, .docx) y Excel (.xls, .xlsx)."}
             )
 
         tamanio = data.get('tamanio', 0)

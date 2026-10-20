@@ -21,7 +21,14 @@ interface FileUploadSectionProps {
 }
 
 const MAX_SIZE_BYTES = 15 * 1024 * 1024; // 15 MB
-const ALLOWED_EXTENSIONS = ['.pdf', '.xls', '.xlsx'];
+const MIME_TYPES: Record<string, string> = {
+  '.pdf': 'application/pdf',
+  '.doc': 'application/msword',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.xls': 'application/vnd.ms-excel',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+};
+const ALLOWED_EXTENSIONS = Object.keys(MIME_TYPES);
 
 export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
   archivos,
@@ -50,7 +57,7 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
     const ext = '.' + file.name.split('.').pop()?.toLowerCase();
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
       setErrorMessage(
-        'Este tipo de archivo no está permitido. Solo se aceptan documentos PDF (.pdf) y hojas de cálculo Excel (.xls, .xlsx).'
+        'Tipo no permitido. Adjunta PDF, Word (.doc, .docx) o Excel (.xls, .xlsx).'
       );
       return;
     }
@@ -71,7 +78,7 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
         const nuevoArchivo: ArchivoAdjunto = {
           id: `arch_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
           nombre: file.name,
-          tipo: file.type || (ext === '.pdf' ? 'application/pdf' : 'application/vnd.ms-excel'),
+          tipo: file.type || MIME_TYPES[ext],
           tamanio: file.size,
           tamanioLegible: formatFileSize(file.size),
           extension: ext,
@@ -143,7 +150,7 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
             Adjunta evidencias y diagnósticos del programa, como reglas de operación, padrones anonimizados, informes MIR o anexos técnicos. Son obligatorios cuando una pregunta los solicita; si no se requieren, la carga es opcional.
           </p>
           <p className="text-xs font-medium text-stone-200">
-            Formatos permitidos: PDF (.pdf), Excel (.xls, .xlsx). Máximo 15 MB por archivo.
+            Formatos permitidos: PDF, Word (.doc, .docx) y Excel (.xls, .xlsx). Máximo 15 MB por archivo.
           </p>
         </div>
 
@@ -171,7 +178,7 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
             ref={fileInputRef}
             type="file"
             multiple
-            accept=".pdf,.xls,.xlsx,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             onChange={handleFileInputChange}
             className="hidden"
           />
@@ -190,7 +197,7 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
           </div>
 
           <div className="inline-flex items-center gap-3 px-3 py-1.5 rounded-full bg-black/30 border border-[#A57F2C]/20 text-[11px] text-stone-300">
-            <span>Formatos: <strong>PDF / XLS / XLSX</strong></span>
+            <span>Formatos: <strong>PDF / DOC / DOCX / XLS / XLSX</strong></span>
             <span>•</span>
             <span>Máximo <strong>15 MB</strong> por archivo</span>
           </div>

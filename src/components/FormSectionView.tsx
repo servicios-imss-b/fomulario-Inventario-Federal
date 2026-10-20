@@ -9,6 +9,7 @@ import { RadioQuestion } from './questions/RadioQuestion';
 import { DateQuestion } from './questions/DateQuestion';
 import { MatrixQuestion } from './questions/MatrixQuestion';
 import { RepeatableQuantificationQuestion } from './questions/RepeatableQuantificationQuestion';
+import { obtenerComponentesMir } from '../data/componentesMir';
 import {
   ArrowLeft,
   ArrowRight,
@@ -98,6 +99,22 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [seccion.id]);
 
+  useEffect(() => {
+    if (seccion.id !== 'apoyos_poblacion_atendida' || !clavePrograma || !anioPrograma) return;
+    const componentes = obtenerComponentesMir(clavePrograma, anioPrograma);
+    const preguntasMir = preguntasDeSeccion.filter((pregunta) => pregunta.id.replace(/__apoyo_\d+$/, '') === '31');
+    const preguntaPendiente = preguntasMir.find((pregunta) => {
+      const currentValue = respuestas[pregunta.id]?.valor;
+      return componentes.length === 0
+        ? currentValue !== 'No aplica'
+        : typeof currentValue === 'string' && currentValue !== '' && !componentes.includes(currentValue);
+    });
+
+    if (preguntaPendiente) {
+      onRespuestaChange(preguntaPendiente.id, seccion.id, preguntaPendiente.pregunta, componentes.length === 0 ? 'No aplica' : '');
+    }
+  }, [seccion.id, clavePrograma, anioPrograma, preguntasDeSeccion, respuestas, onRespuestaChange]);
+
   const isQuestionVisible = (pregunta: PreguntaConfig): boolean => {
     if (!pregunta.dependeDe) return true;
     const parentResponse = respuestas[pregunta.dependeDe.preguntaId]?.valor;
@@ -151,13 +168,23 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
     }
 
     if (pregunta.tipo === 'tabla_cuantificacion') {
-      const rows = (valor as { rows?: Array<{ unit: string; quantity: string; justification?: string }> })?.rows;
-      return Boolean(rows?.length && rows.every((row) =>
-        row.unit.trim()
-        && row.quantity !== ''
-        && Number(row.quantity) >= 0
-        && (pregunta.id !== '18' || Number(row.quantity) !== 0 || Boolean(row.justification?.trim()))
-      ));
+      const rows = (valor as { rows?: unknown[] })?.rows;
+      if (!Array.isArray(rows) || rows.length === 0) return false;
+      return rows.every((value) => {
+        if (!value || typeof value !== 'object') return false;
+        const row = value as { unit?: unknown; quantity?: unknown; justification?: unknown };
+        const unit = typeof row.unit === 'string' ? row.unit.trim() : '';
+        const quantity = row.quantity;
+        const amount = Number(quantity);
+        const justification = typeof row.justification === 'string' ? row.justification.trim() : '';
+        return Boolean(unit)
+          && quantity !== ''
+          && quantity !== undefined
+          && quantity !== null
+          && Number.isFinite(amount)
+          && amount >= 0
+          && (pregunta.id !== '18' || amount !== 0 || Boolean(justification));
+      });
     }
 
     if (pregunta.tipo === 'select') {
@@ -362,20 +389,23 @@ export const FormSectionView: React.FC<FormSectionViewProps> = ({
                 />
               );
             case 'select':
-              const dynamicOptions = preg.opcionesPorValor
+              const baseQuestionId = preg.id.replace(/__apoyo_\d+$/, '');
+              const isMirQuestion = baseQuestionId === '31';
+              const mirComponents = isMirQuestion ? obtenerComponentesMir(clavePrograma, anioPrograma) : [];
+              const mirNoAplica = isMirQuestion && mirComponents.length === 0;
+              const dynamicOptions = isMirQuestion
+                ? mirComponents.length > 0 ? ['Seleccione una opción', ...mirComponents] : ['No aplica']
+                : preg.opcionesPorValor
                 ? preg.opcionesPorValor.opciones[String(respuestas[preg.opcionesPorValor.preguntaId]?.valor ?? '')] ?? ['Seleccione una opción']
                 : preg.opciones;
-              const baseQuestionId = preg.id.replace(/__apoyo_\d+$/, '');
-              const mirLevelFour = dynamicOptions?.find((option) => option.startsWith('4. '));
-              const selectedValue = baseQuestionId === '31' && String(valor).trim() === '4'
-                ? mirLevelFour ?? '4. Proyectos de mejora de las Unidades de Salud de Primer Nivel de Atención concluidos'
-                : valor;
+              const selectedValue = mirNoAplica ? 'No aplica' : typeof valor === 'string' ? valor : '';
               return (
                 <SelectQuestion
                   pregunta={{ ...preg, opciones: dynamicOptions }}
                   valor={selectedValue}
                   fuente={fuente}
                   error={error}
+                  disabled={mirNoAplica}
                   onChange={(val, f) => {
                     onRespuestaChange(preg.id, seccion.id, preg.pregunta, val, f);
                     const supportSuffix = preg.id.match(/__apoyo_\d+$/)?.[0] ?? '';

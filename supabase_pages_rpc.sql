@@ -140,7 +140,7 @@ begin
     if left(v_archivo_extension, 1) <> '.' then
       v_archivo_extension := '.' || v_archivo_extension;
     end if;
-    if v_archivo_extension not in ('.pdf', '.xls', '.xlsx') then
+    if v_archivo_extension not in ('.pdf', '.doc', '.docx', '.xls', '.xlsx') then
       raise exception 'La extensión de un archivo adjunto no está permitida.' using errcode = '22023';
     end if;
 

@@ -372,20 +372,13 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
 
             {/* Botón de Sincronización Manual si hay pendientes */}
-            {estadoConexion.elementosPendientes > 0 && usesSupabase && (
-              <span
-                className="hidden md:flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-amber-200 bg-amber-950/80 border border-amber-500/40 rounded-full"
-                title="Los cambios locales se guardan en Supabase al enviar el formulario."
-              >
-                <Database className="w-3 h-3" />
-                <span>Locales ({estadoConexion.elementosPendientes})</span>
-              </span>
-            )}
-            {estadoConexion.elementosPendientes > 0 && !usesSupabase && (
+            {estadoConexion.elementosPendientes > 0 && (
               <button
+                type="button"
                 onClick={onManualSync}
+                disabled={!onManualSync || estadoConexion.sincronizando}
                 className="hidden md:flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-amber-200 bg-amber-950/80 hover:bg-amber-900/90 border border-amber-500/40 rounded-full transition-all"
-                title="Presione para sincronizar datos locales pendientes con el servidor"
+                title="Reintentar sincronización de los cambios locales pendientes"
               >
                 <RefreshCw className="w-3 h-3" />
                 <span>Sync ({estadoConexion.elementosPendientes})</span>

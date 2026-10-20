@@ -791,7 +791,7 @@ begin
 
     v_archivo_extension := lower(coalesce(v_archivo ->> 'extension', ''));
     if left(v_archivo_extension, 1) <> '.' then v_archivo_extension := '.' || v_archivo_extension; end if;
-    if v_archivo_extension not in ('.pdf', '.xls', '.xlsx') then
+    if v_archivo_extension not in ('.pdf', '.doc', '.docx', '.xls', '.xlsx') then
       raise exception 'Extension de archivo no permitida.' using errcode = '22023';
     end if;
 

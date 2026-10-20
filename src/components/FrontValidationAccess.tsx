@@ -9,6 +9,21 @@ interface FrontValidationAccessProps {
 
 type ReportRow = Record<string, string | number>;
 type ReportResult = { rows: ReportRow[] } | { error: string; authFailed: boolean };
+type CachedReport = { rows: ReportRow[]; updatedAt: string };
+
+const reportCacheKey = (username: string) => `reporte-relacional-v1:${username.trim().toLowerCase()}`;
+
+function readCachedReport(username: string): CachedReport | null {
+  try {
+    const cached = window.sessionStorage.getItem(reportCacheKey(username));
+    if (!cached) return null;
+    const parsed = JSON.parse(cached) as Partial<CachedReport>;
+    if (!Array.isArray(parsed.rows) || typeof parsed.updatedAt !== 'string') return null;
+    return { rows: parsed.rows as ReportRow[], updatedAt: parsed.updatedAt };
+  } catch {
+    return null;
+  }
+}
 
 async function fetchReport(username: string, password: string): Promise<ReportResult> {
   if (!supabaseClient) return { error: 'No está configurada la conexión a Supabase.', authFailed: false };
@@ -39,9 +54,15 @@ export function FrontValidationAccess({ onClose }: FrontValidationAccessProps) {
     try {
       const result = await fetchReport(credentials.username, credentials.password);
       if ('rows' in result) {
+        const refreshedAt = new Date().toISOString();
         setReportRows(result.rows);
         setReportDataMessage('');
-        setUpdatedAt(new Date().toISOString());
+        setUpdatedAt(refreshedAt);
+        try {
+          window.sessionStorage.setItem(reportCacheKey(credentials.username), JSON.stringify({ rows: result.rows, updatedAt: refreshedAt }));
+        } catch {
+          // Keep the refreshed rows in memory if this browser blocks session storage.
+        }
       } else {
         setReportDataMessage(result.error);
       }
@@ -87,9 +108,10 @@ export function FrontValidationAccess({ onClose }: FrontValidationAccessProps) {
       } else if (data?.success) {
         credentialsRef.current = { username, password };
         setPassword('');
-        setReportRows([]);
+        const cached = readCachedReport(username);
+        setReportRows(cached?.rows ?? []);
         setReportDataMessage('');
-        setUpdatedAt('');
+        setUpdatedAt(cached?.updatedAt ?? '');
         setIsAuthenticated(true);
       } else {
         setError(data?.error || 'Usuario o contraseña incorrectos.');

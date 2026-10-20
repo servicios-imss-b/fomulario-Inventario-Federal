@@ -20,7 +20,16 @@ interface RepeatableQuantificationQuestionProps {
 }
 
 export function RepeatableQuantificationQuestion({ pregunta, valor, error, lockedPrefilledUnitRows = 0, onChange }: RepeatableQuantificationQuestionProps) {
-  const rows = valor?.rows?.length ? valor.rows : [{ unit: '', quantity: '' }];
+  const savedRows = Array.isArray(valor?.rows) ? valor.rows : [];
+  const normalizedRows = savedRows.map((savedRow) => {
+    const row = savedRow && typeof savedRow === 'object' ? savedRow as Partial<QuantificationRow> : {};
+    return {
+      unit: typeof row.unit === 'string' ? row.unit : '',
+      quantity: row.quantity === undefined || row.quantity === null ? '' : String(row.quantity),
+      justification: typeof row.justification === 'string' ? row.justification : '',
+    };
+  });
+  const rows = normalizedRows.length > 0 ? normalizedRows : [{ unit: '', quantity: '' }];
   const questionNumber = pregunta.id === '18' ? '18' : '16';
 
   const updateRow = (index: number, field: keyof QuantificationRow, fieldValue: string) => {

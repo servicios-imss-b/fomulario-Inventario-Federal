@@ -330,13 +330,16 @@ export default function App() {
     }));
 
     // Auto-sync al volver la red
-    if (!ApiService.usesSupabase() && isOnline && queue.length > 0 && !estadoConexion.sincronizando) {
+    if (isOnline && queue.length > 0 && !estadoConexion.sincronizando) {
       setEstadoConexion((prev) => ({ ...prev, sincronizando: true }));
       try {
         const count = await ApiService.syncPendingQueue();
         if (count > 0) {
           setArchivos(await getArchivosLocal());
           addToast(`Sincronización completada (${count} elementos)`, 'success');
+          if (await getSyncQueue().then((remaining) => remaining.length === 0)) {
+            setEstadoGuardado('guardado');
+          }
         }
       } catch (e) {
         console.warn('Error durante auto-sync', e);
@@ -604,7 +607,13 @@ export default function App() {
     try {
       const count = await ApiService.syncPendingQueue();
       if (count > 0) setArchivos(await getArchivosLocal());
-      addToast(`Sincronización manual: ${count} elementos procesados.`, 'success');
+      const remainingQueue = await getSyncQueue();
+      if (remainingQueue.length === 0) {
+        addToast(`Sincronización completada: ${count} elementos procesados.`, 'success');
+        if (count > 0) setEstadoGuardado('guardado');
+      } else {
+        addToast(`Quedan ${remainingQueue.length} elementos locales. Revisa la conexión y vuelve a intentar.`, 'warning');
+      }
     } catch {
       addToast('No fue posible sincronizar en este momento.', 'error');
     } finally {
@@ -849,7 +858,7 @@ export default function App() {
         estadoConexion={estadoConexion}
         estadoGuardado={estadoGuardado}
         seccionActualTitulo={step === 'section' ? seccionActual?.titulo : undefined}
-        onManualSync={ApiService.usesSupabase() ? undefined : handleManualSync}
+        onManualSync={handleManualSync}
         usesSupabase={ApiService.usesSupabase()}
         onAdminAccess={formAccess ? undefined : () => setIsAdminView(true)}
         onFormSignOut={formAccess && !isAdminView ? handleFormSignOut : undefined}

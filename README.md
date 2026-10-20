@@ -36,7 +36,7 @@ Diseño basado en **Glassmorphism institucional** con fondos transparentes, dese
                    ▼ (Persistencia PostgreSQL)
        ┌────────────────────────┐
        │        Supabase        │  ← Row Level Security (RLS)
-       │    (Storage Buckets)   │  ← PDF / XLS / XLSX (Máx. 15 MB)
+    │    (Storage Buckets)   │  ← PDF / DOC / DOCX / XLS / XLSX (Máx. 15 MB)
        └────────────────────────┘
 ```
 
@@ -58,7 +58,7 @@ Todas las preguntas provienen del instrumento del INEGI sin modificaciones de si
 10. **Población Atendida** (Preguntas 32 a 34: unidad de medida, definición y grupos etarios).
 11. **Grupos de Población Atendidos** (Preguntas 35 y 35.1: 29 grupos prioritarios y carencias).
 12. **Nivel de Desagregación** (Preguntas 36 a 37.1: cuantificación estatal o municipal, agregada o por sexo).
-13. **Documentación / Archivos** (Carga de archivos PDF, XLS, XLSX con validación MIME).
+13. **Documentación / Archivos** (Carga de archivos PDF, DOC, DOCX, XLS y XLSX con validación MIME).
 14. **Revisión del Formulario** (Resumen de integridad con botones `← EDITAR`).
 15. **Confirmación y Folio Oficial** (`INEGI-IFPADS-2025-XXXXX`).
 

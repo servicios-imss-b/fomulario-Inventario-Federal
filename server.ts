@@ -104,11 +104,13 @@ async function uploadFileToGoogleDrive(payload: {
   const extension = (payload.extension || path.extname(payload.nombre)).toLowerCase();
   const mimeTypeByExtension: Record<string, string> = {
     '.pdf': 'application/pdf',
+    '.doc': 'application/msword',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     '.xls': 'application/vnd.ms-excel',
     '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   };
   const mimeType = mimeTypeByExtension[extension];
-  if (!mimeType) throw new Error('Solo se aceptan archivos PDF, XLS o XLSX.');
+  if (!mimeType) throw new Error('Solo se aceptan archivos PDF, Word o Excel.');
   if (!payload.dataBase64) throw new Error('El contenido del archivo no está disponible para subir a Drive.');
 
   const base64Content = payload.dataBase64.includes(',')
@@ -390,10 +392,10 @@ app.post('/api/archivos/', async (req: Request, res: Response) => {
 
     // Validation: Allowed extensions
     const ext = (extension || path.extname(nombre)).toLowerCase();
-    const allowedExtensions = ['.pdf', '.xls', '.xlsx'];
+    const allowedExtensions = ['.pdf', '.doc', '.docx', '.xls', '.xlsx'];
     if (!allowedExtensions.includes(ext)) {
       return res.status(400).json({
-        error: 'Este tipo de archivo no está permitido. Solo se aceptan documentos PDF (.pdf) y hojas de cálculo Excel (.xls, .xlsx).',
+        error: 'Tipo no permitido. Solo se aceptan PDF, Word (.doc, .docx) y Excel (.xls, .xlsx).',
       });
     }
 

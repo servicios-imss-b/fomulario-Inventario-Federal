@@ -241,6 +241,31 @@ export class ApiService {
       let syncedCount = 0;
       for (const item of queue) {
         try {
+          if (item.tipo === 'archivo') {
+            const response = await fetch(`${API_BASE}/archivos/`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(item.payload),
+            });
+            const responseBody = await response.json().catch(() => ({}));
+            if (!response.ok || !responseBody.success) {
+              console.warn('No se pudo sincronizar un archivo pendiente.', {
+                status: response.status,
+                error: responseBody.error,
+              });
+              continue;
+            }
+            await saveArchivoLocal({
+              ...item.payload,
+              ...responseBody.data,
+              estado: 'sincronizado',
+              dataBase64: undefined,
+            });
+            await removeSyncItem(item.id);
+            syncedCount++;
+            continue;
+          }
+
           const result = item.tipo === 'respuesta'
             ? await supabaseClient.rpc('guardar_avance_formulario', {
                 p_password: access.password,
@@ -254,7 +279,16 @@ export class ApiService {
                   p_submitted_sections: item.payload.submittedSections,
                 })
               : null;
-          if (!result || result.error) continue;
+          if (!result || result.error) {
+            if (result?.error) {
+              console.warn('No se pudo sincronizar una respuesta pendiente.', {
+                preguntaId: item.tipo === 'respuesta' ? item.payload.preguntaId : undefined,
+                code: result.error.code,
+                message: result.error.message,
+              });
+            }
+            continue;
+          }
           if (item.tipo === 'respuesta') {
             await saveRespuestaLocal({ ...item.payload, estado: 'guardado' });
           }

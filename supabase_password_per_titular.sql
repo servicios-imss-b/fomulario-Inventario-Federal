@@ -1,6 +1,10 @@
 -- Idempotent migration: one password per titular, multiple allowed key/year assignments.
 -- Existing assignments and questionnaire rows remain intact.
 
+alter table public.archivos drop constraint if exists archivos_extension_check;
+alter table public.archivos add constraint archivos_extension_check
+  check (lower(extension) in ('.pdf', '.doc', '.docx', '.xls', '.xlsx'));
+
 alter table private.form_titulares add column if not exists password_hash text;
 alter table private.form_titulares add column if not exists password_cipher text;
 alter table private.form_titulares add column if not exists password_activo boolean not null default true;
@@ -462,7 +466,7 @@ begin
     if v_archivo_tamanio < 0 or v_archivo_tamanio > 15728640 then raise exception 'Tamano de archivo no valido.' using errcode = '22023'; end if;
     v_archivo_extension := lower(coalesce(v_archivo ->> 'extension', ''));
     if left(v_archivo_extension, 1) <> '.' then v_archivo_extension := '.' || v_archivo_extension; end if;
-    if v_archivo_extension not in ('.pdf', '.xls', '.xlsx') then raise exception 'Extension de archivo no permitida.' using errcode = '22023'; end if;
+    if v_archivo_extension not in ('.pdf', '.doc', '.docx', '.xls', '.xlsx') then raise exception 'Extension de archivo no permitida.' using errcode = '22023'; end if;
     insert into public.archivos (formulario_id, nombre, tipo, tamanio, extension, proveedor_almacenamiento, almacenamiento_id, ruta_almacenamiento, estado)
     values (v_formulario_id, left(coalesce(v_archivo ->> 'nombre', 'archivo'), 255), left(coalesce(v_archivo ->> 'tipo', 'application/octet-stream'), 120),
       v_archivo_tamanio, v_archivo_extension, coalesce(nullif(v_archivo ->> 'proveedorAlmacenamiento', ''), 'google_drive'),

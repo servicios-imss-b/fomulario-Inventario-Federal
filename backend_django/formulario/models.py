@@ -66,7 +66,7 @@ class Respuesta(models.Model):
 
 class ArchivoAdjunto(models.Model):
     """
-    Archivos adjuntos autorizados: PDF (.pdf) y Excel (.xls, .xlsx).
+    Archivos adjuntos autorizados: PDF, Word y Excel.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     formulario = models.ForeignKey(
@@ -83,7 +83,7 @@ class ArchivoAdjunto(models.Model):
     
     archivo = models.FileField(
         upload_to='archivos_inegi/%Y/%m/',
-        validators=[FileExtensionValidator(allowed_extensions=['pdf', 'xls', 'xlsx'])],
+        validators=[FileExtensionValidator(allowed_extensions=['pdf', 'doc', 'docx', 'xls', 'xlsx'])],
         null=True,
         blank=True
     )
