@@ -17,9 +17,18 @@ create table if not exists private.form_titulares (
   id uuid primary key default gen_random_uuid(),
   nombre varchar(300) not null,
   correo varchar(320) not null,
+  password_hash text,
+  password_cipher text,
+  password_activo boolean not null default true,
+  password_updated_at timestamptz,
   creado_en timestamptz not null default now(),
   actualizado_en timestamptz not null default now()
 );
+
+alter table private.form_titulares add column if not exists password_hash text;
+alter table private.form_titulares add column if not exists password_cipher text;
+alter table private.form_titulares add column if not exists password_activo boolean not null default true;
+alter table private.form_titulares add column if not exists password_updated_at timestamptz;
 
 create unique index if not exists form_titulares_correo_unico
   on private.form_titulares (lower(trim(correo)));
@@ -49,13 +58,26 @@ create table if not exists private.form_access_events (
 create index if not exists form_access_events_credential_entered_idx
   on private.form_access_events (credential_id, entered_at desc);
 
-revoke all on private.reporte_acceso, private.form_titulares, private.form_accesos, private.form_access_events
+create table if not exists private.form_access_config (
+  secret_name text primary key,
+  secret_value text not null
+);
+
+insert into private.form_access_config (secret_name, secret_value)
+values ('form_password_encryption_key', encode(extensions.gen_random_bytes(32), 'hex'))
+on conflict (secret_name) do nothing;
+
+alter table private.form_accesos add column if not exists password_cipher text;
+
+revoke all on private.reporte_acceso, private.form_titulares, private.form_accesos,
+  private.form_access_events, private.form_access_config
   from public, anon, authenticated;
 
 alter table private.reporte_acceso enable row level security;
 alter table private.form_titulares enable row level security;
 alter table private.form_accesos enable row level security;
 alter table private.form_access_events enable row level security;
+alter table private.form_access_config enable row level security;
 
 alter table public.formularios add column if not exists titular_id uuid;
 alter table public.formularios add column if not exists titular_nombre varchar(300);
@@ -224,30 +246,44 @@ begin
   end if;
 
   select coalesce(jsonb_agg(jsonb_build_object(
-    'id', a.id,
     'titularId', t.id,
     'nombre', t.nombre,
     'correo', t.correo,
-    'clave', a.clave,
-    'anio', a.anio,
-    'activo', a.activo,
-    'tienePassword', a.password_hash is not null,
-    'estadoFormulario', coalesce(f.estado, 'SIN_INICIAR'),
-    'folio', coalesce(f.folio, ''),
-    'entryId', latest_entry.id,
-    'enteredAt', latest_entry.entered_at
-  ) order by lower(t.nombre), a.clave, a.anio), '[]'::jsonb)
+    'passwordActiva', t.password_activo,
+    'password', case
+      when t.password_cipher is null then null
+      else extensions.pgp_sym_decrypt(
+        decode(t.password_cipher, 'base64'),
+        (select secret_value from private.form_access_config where secret_name = 'form_password_encryption_key')
+      )
+    end,
+    'assignments', coalesce(assignment_list.items, '[]'::jsonb)
+  ) order by lower(t.nombre)), '[]'::jsonb)
   into v_accesos
-  from private.form_accesos a
-  join private.form_titulares t on t.id = a.titular_id
-  left join public.formularios f on f.access_credential_id = a.id
+  from private.form_titulares t
   left join lateral (
-    select entry_event.id, entry_event.entered_at
-    from private.form_access_events entry_event
-    where entry_event.credential_id = a.id
-    order by entry_event.entered_at desc
-    limit 1
-  ) latest_entry on true;
+    select jsonb_agg(jsonb_build_object(
+      'id', a.id,
+      'clave', a.clave,
+      'anio', a.anio,
+      'activo', a.activo,
+      'estadoFormulario', coalesce(f.estado, 'SIN_INICIAR'),
+      'folio', coalesce(f.folio, ''),
+      'entryId', latest_entry.id,
+      'enteredAt', latest_entry.entered_at
+    ) order by a.clave, a.anio) as items
+    from private.form_accesos a
+    left join public.formularios f on f.access_credential_id = a.id
+    left join lateral (
+      select entry_event.id, entry_event.entered_at
+      from private.form_access_events entry_event
+      where entry_event.credential_id = a.id
+      order by entry_event.entered_at desc
+      limit 1
+    ) latest_entry on true
+    where a.titular_id = t.id
+  ) assignment_list on true
+  where exists (select 1 from private.form_accesos a where a.titular_id = t.id);
 
   return jsonb_build_object('success', true, 'accesses', v_accesos);
 end;
@@ -270,6 +306,8 @@ declare
   v_titular_id uuid;
   v_acceso_id uuid;
   v_password text;
+  v_password_cipher text;
+  v_encryption_key text;
   v_correo text := lower(trim(coalesce(p_correo, '')));
   v_nombre text := trim(coalesce(p_nombre, ''));
 begin
@@ -307,10 +345,20 @@ begin
     '-_'
   );
 
-  insert into private.form_accesos (titular_id, clave, anio, password_hash, activo, actualizado_en)
-  values (v_titular_id, p_clave, p_anio, extensions.crypt(v_password, extensions.gen_salt('bf', 12)), true, now())
+  select secret_value into v_encryption_key
+  from private.form_access_config
+  where secret_name = 'form_password_encryption_key';
+
+  if v_encryption_key is null then
+    raise exception 'No está configurada la clave privada de contraseñas.' using errcode = '55000';
+  end if;
+  v_password_cipher := encode(extensions.pgp_sym_encrypt(v_password, v_encryption_key), 'base64');
+
+  insert into private.form_accesos (titular_id, clave, anio, password_hash, password_cipher, activo, actualizado_en)
+  values (v_titular_id, p_clave, p_anio, extensions.crypt(v_password, extensions.gen_salt('bf', 12)), v_password_cipher, true, now())
   on conflict (titular_id, clave, anio) do update
     set password_hash = excluded.password_hash,
+        password_cipher = excluded.password_cipher,
         activo = true,
         actualizado_en = now()
   returning id into v_acceso_id;

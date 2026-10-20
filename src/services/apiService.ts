@@ -9,7 +9,7 @@ import {
 import { supabaseClient } from './supabaseClient';
 
 const API_BASE = '/api';
-type FormAccessCredential = { credentialId: string; password: string };
+type FormAccessCredential = { accessId: string; password: string };
 
 export class ApiService {
   private static formAccess: FormAccessCredential | null = null;
@@ -63,6 +63,7 @@ export class ApiService {
       try {
         const { error } = await supabaseClient.rpc('guardar_avance_formulario', {
           p_password: access.password,
+          p_access_id: access.accessId,
           p_respuesta: respuesta,
         });
         if (error) throw error;
@@ -140,6 +141,7 @@ export class ApiService {
 
     const { error } = await supabaseClient.rpc('guardar_progreso_formulario', {
       p_password: access.password,
+      p_access_id: access.accessId,
       p_submitted_sections: sections,
     });
     if (error) {
@@ -242,11 +244,13 @@ export class ApiService {
           const result = item.tipo === 'respuesta'
             ? await supabaseClient.rpc('guardar_avance_formulario', {
                 p_password: access.password,
+                p_access_id: access.accessId,
                 p_respuesta: item.payload,
               })
             : item.tipo === 'progreso'
               ? await supabaseClient.rpc('guardar_progreso_formulario', {
                   p_password: access.password,
+                    p_access_id: access.accessId,
                   p_submitted_sections: item.payload.submittedSections,
                 })
               : null;
@@ -314,6 +318,7 @@ export class ApiService {
       );
       const { data, error } = await supabaseClient.rpc('registrar_formulario', {
         p_password: access.password,
+        p_access_id: access.accessId,
         p_payload: {
           ...payload,
           respuestas: respuestasGuardadas,

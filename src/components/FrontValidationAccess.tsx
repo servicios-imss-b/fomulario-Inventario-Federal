@@ -74,16 +74,25 @@ export function FrontValidationAccess({ onClose }: FrontValidationAccessProps) {
     setIsSubmitting(true);
     setError('');
     try {
-      const result = await fetchReport(username, password);
-      if ('rows' in result) {
+      if (!supabaseClient) {
+        setError('No está configurada la conexión a Supabase.');
+        return;
+      }
+      const { data, error: validationError } = await supabaseClient.rpc('validar_reporte_relacional', {
+        p_usuario: username,
+        p_password: password,
+      });
+      if (validationError) {
+        setError('No fue posible validar el acceso al reporte.');
+      } else if (data?.success) {
         credentialsRef.current = { username, password };
         setPassword('');
-        setReportRows(result.rows);
+        setReportRows([]);
         setReportDataMessage('');
-        setUpdatedAt(new Date().toISOString());
+        setUpdatedAt('');
         setIsAuthenticated(true);
       } else {
-        setError(result.error);
+        setError(data?.error || 'Usuario o contraseña incorrectos.');
       }
     } catch {
       setError('No fue posible conectar con Supabase.');
@@ -106,15 +115,27 @@ export function FrontValidationAccess({ onClose }: FrontValidationAccessProps) {
           )}
           className="absolute inset-0 block h-full w-full border-0 bg-gray-50"
         />
-        {isSuperUser && !isManagingAccess && (
-          <button
-            type="button"
-            onClick={() => setIsManagingAccess(true)}
-            className="fixed right-4 top-4 z-[110] inline-flex items-center gap-2 rounded-md border border-[#611232] bg-white px-3 py-2 text-xs font-semibold text-[#611232] shadow-lg transition hover:bg-rose-50"
-          >
-            <LockKeyhole className="h-3.5 w-3.5" />
-            Accesos al formulario
-          </button>
+        {!isManagingAccess && (
+          <div className="fixed right-4 top-4 z-[110] flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex items-center gap-2 rounded-md border border-slate-900/20 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-lg transition hover:bg-slate-50"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Salir del reporte
+            </button>
+            {isSuperUser && (
+              <button
+                type="button"
+                onClick={() => setIsManagingAccess(true)}
+                className="inline-flex items-center gap-2 rounded-md border border-[#611232] bg-white px-3 py-2 text-xs font-semibold text-[#611232] shadow-lg transition hover:bg-rose-50"
+              >
+                <LockKeyhole className="h-3.5 w-3.5" />
+                Accesos al formulario
+              </button>
+            )}
+          </div>
         )}
         {isSuperUser && isManagingAccess && (
           <FormAccessAdmin

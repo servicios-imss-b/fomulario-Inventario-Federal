@@ -15,6 +15,84 @@ create table if not exists private.reporte_acceso (
 
 revoke all on private.reporte_acceso from public, anon, authenticated;
 
+create or replace function public.validar_reporte_relacional(p_usuario text, p_password text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_acceso private.reporte_acceso%rowtype;
+begin
+  select * into v_acceso
+  from private.reporte_acceso
+  where usuario = coalesce(p_usuario, '')
+  for update;
+
+  if found and v_acceso.bloqueado_hasta is not null and v_acceso.bloqueado_hasta > now() then
+    return jsonb_build_object('success', false, 'error', 'Demasiados intentos. Espera un minuto e inténtalo de nuevo.');
+  end if;
+
+  if not found or v_acceso.password_hash <> extensions.crypt(coalesce(p_password, ''), v_acceso.password_hash) then
+    if found then
+      update private.reporte_acceso
+      set intentos_fallidos = intentos_fallidos + 1,
+          bloqueado_hasta = case when intentos_fallidos + 1 >= 8 then now() + interval '1 minute' else null end
+      where usuario = v_acceso.usuario;
+    end if;
+    return jsonb_build_object('success', false, 'error', 'Usuario o contraseña incorrectos.');
+  end if;
+
+  update private.reporte_acceso
+  set intentos_fallidos = 0, bloqueado_hasta = null
+  where usuario = v_acceso.usuario;
+
+  return jsonb_build_object('success', true);
+end;
+$$;
+
+revoke all on function public.validar_reporte_relacional(text, text) from public;
+grant execute on function public.validar_reporte_relacional(text, text) to anon, authenticated;
+
+create or replace function public.validar_reporte_relacional(p_usuario text, p_password text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_acceso private.reporte_acceso%rowtype;
+begin
+  select * into v_acceso
+  from private.reporte_acceso
+  where usuario = coalesce(p_usuario, '')
+  for update;
+
+  if found and v_acceso.bloqueado_hasta is not null and v_acceso.bloqueado_hasta > now() then
+    return jsonb_build_object('success', false, 'error', 'Demasiados intentos. Espera un minuto e inténtalo de nuevo.');
+  end if;
+
+  if not found or v_acceso.password_hash <> extensions.crypt(coalesce(p_password, ''), v_acceso.password_hash) then
+    if found then
+      update private.reporte_acceso
+      set intentos_fallidos = intentos_fallidos + 1,
+          bloqueado_hasta = case when intentos_fallidos + 1 >= 8 then now() + interval '1 minute' else null end
+      where usuario = v_acceso.usuario;
+    end if;
+    return jsonb_build_object('success', false, 'error', 'Usuario o contraseña incorrectos.');
+  end if;
+
+  update private.reporte_acceso
+  set intentos_fallidos = 0, bloqueado_hasta = null
+  where usuario = v_acceso.usuario;
+
+  return jsonb_build_object('success', true);
+end;
+$$;
+
+revoke all on function public.validar_reporte_relacional(text, text) from public;
+grant execute on function public.validar_reporte_relacional(text, text) to anon, authenticated;
+
 alter table public.formularios add column if not exists titular_nombre varchar(300);
 alter table public.formularios add column if not exists titular_correo varchar(320);
 alter table public.formularios add column if not exists clave_programa varchar(20);

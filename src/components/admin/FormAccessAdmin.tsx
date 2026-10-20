@@ -8,30 +8,38 @@ interface FormAccessAdminProps {
   onClose: () => void;
 }
 
-interface AccessRecord {
+interface AssignmentRecord {
   id: string;
-  titularId: string;
-  nombre: string;
-  correo: string;
   clave: string;
   anio: string;
   activo: boolean;
-  tienePassword: boolean;
   estadoFormulario: string;
   folio: string;
-  entryId: string | null;
-  enteredAt: string | null;
+}
+
+interface AccessRecord {
+  titularId: string;
+  nombre: string;
+  correo: string;
+  activo: boolean;
+  password: string | null;
+  assignments: AssignmentRecord[];
 }
 
 interface InitialCredential {
   nombre: string;
   correo: string;
-  clave: string;
-  anio: string;
+  assignments: Array<{ clave: string; anio: string }>;
   password: string;
 }
 
 const programKeys = ['S313', 'E001', 'U013', 'S200', 'U313', 'E003', 'E004', 'E006'];
+const assignmentYears = ['2024', '2025', '2026', '2027'];
+const assignmentOptions = programKeys.flatMap((clave) => assignmentYears.map((anio) => ({
+  id: `${clave}::${anio}`,
+  clave,
+  anio,
+})));
 const initialRoster = [
   { nombre: 'Reyes Pérez Bernal', correo: 'reyes.perez@imssbienestar.gob.mx', claves: ['U013'] },
   { nombre: 'Víctor Hugo López Aranda', correo: 'victor.lopeza@imssbienestar.gob.mx', claves: ['U013'] },
@@ -39,60 +47,135 @@ const initialRoster = [
   { nombre: 'Guillermo José Argueta Monterrosa', correo: 'guillermo.argueta@imssbienestar.gob.mx', claves: ['S313', 'U313'] },
 ];
 
+function normalizeAccesses(rows: unknown): AccessRecord[] {
+  if (!Array.isArray(rows)) return [];
+  if (rows.every((row) => row && typeof row === 'object' && Array.isArray((row as Record<string, unknown>).assignments))) {
+    return rows as AccessRecord[];
+  }
+
+  const grouped = new Map<string, AccessRecord>();
+  for (const value of rows) {
+    if (!value || typeof value !== 'object') continue;
+    const row = value as Record<string, unknown>;
+    const titularId = typeof row.titularId === 'string' ? row.titularId : '';
+    if (!titularId || typeof row.clave !== 'string' || typeof row.anio !== 'string') continue;
+    const access = grouped.get(titularId) ?? {
+      titularId,
+      nombre: typeof row.nombre === 'string' ? row.nombre : '',
+      correo: typeof row.correo === 'string' ? row.correo : '',
+      activo: true,
+      password: null,
+      assignments: [],
+    };
+    access.assignments.push({
+      id: typeof row.id === 'string' ? row.id : `${row.clave}::${row.anio}`,
+      clave: row.clave,
+      anio: row.anio,
+      activo: Boolean(row.activo),
+      estadoFormulario: typeof row.estadoFormulario === 'string' ? row.estadoFormulario : 'SIN_INICIAR',
+      folio: typeof row.folio === 'string' ? row.folio : '',
+    });
+    grouped.set(titularId, access);
+  }
+  return [...grouped.values()].sort((left, right) => left.nombre.localeCompare(right.nombre, 'es'));
+}
+
 export function FormAccessAdmin({ username, password, onClose }: FormAccessAdminProps) {
   const [accesses, setAccesses] = useState<AccessRecord[]>([]);
   const [initialCredentials, setInitialCredentials] = useState<InitialCredential[]>([]);
   const [nombre, setNombre] = useState('');
   const [correo, setCorreo] = useState('');
-  const [clave, setClave] = useState(programKeys[0]);
-  const [anio, setAnio] = useState('2024');
+  const [selectedAssignments, setSelectedAssignments] = useState<string[]>([]);
   const [issuedPassword, setIssuedPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [initialProgress, setInitialProgress] = useState('');
   const [copied, setCopied] = useState(false);
+  const [copiedAccessId, setCopiedAccessId] = useState('');
 
   const handleCreateInitialAccesses = async () => {
     if (!supabaseClient) return;
     setIsSaving(true);
     setError('');
     setInitialCredentials([]);
-    const assignments = initialRoster.flatMap((titular) =>
-      titular.claves.flatMap((key) => ['2024', '2025'].map((year) => ({
-        nombre: titular.nombre,
-        correo: titular.correo,
-        clave: key,
-        anio: year,
-      }))),
-    );
-    const created: InitialCredential[] = [];
-    let failureMessage = '';
-
-    for (const [index, assignment] of assignments.entries()) {
-      setInitialProgress(`Generando ${index + 1} de ${assignments.length}…`);
-      const { data, error: rpcError } = await supabaseClient.rpc('guardar_acceso_captura', {
+    const assignments = initialRoster.map((titular) => ({
+      nombre: titular.nombre,
+      correo: titular.correo,
+      assignments: titular.claves.flatMap((clave) => ['2024', '2025'].map((anio) => ({ clave, anio }))),
+    }));
+    setInitialProgress(`Generando ${assignments.length} contraseñas…`);
+    const results = await Promise.all(assignments.map(async (assignment) => {
+      const { data, error: rpcError } = await supabaseClient.rpc('guardar_accesos_titular', {
         p_usuario: username,
         p_admin_password: password,
         p_nombre: assignment.nombre,
         p_correo: assignment.correo,
-        p_clave: assignment.clave,
-        p_anio: assignment.anio,
+        p_assignments: assignment.assignments,
       });
       if (rpcError || !data?.success) {
-        failureMessage = data?.error || `No se pudo crear ${assignment.nombre}, ${assignment.clave}/${assignment.anio}.`;
-        break;
+        return { error: data?.error || `No se pudo crear el acceso de ${assignment.nombre}.` };
       }
-
-      created.push({ ...assignment, password: data.password });
-      setInitialCredentials([...created]);
-      setCopied(false);
-    }
+      return { credential: { ...assignment, password: data.password } };
+    }));
+    const created = results.flatMap((result) => result.credential ? [result.credential] : []);
+    const failureMessage = results.flatMap((result) => result.error ? [result.error] : []).join(' ');
+    setInitialCredentials(created);
+    setCopied(false);
 
     await loadAccesses();
     if (failureMessage) setError(failureMessage);
     setInitialProgress('');
     setIsSaving(false);
+  };
+
+  const handleCreateTitularPasswords = async () => {
+    if (!supabaseClient) return;
+    setIsSaving(true);
+    setError('');
+    setInitialCredentials([]);
+    const holders = accesses
+      .map((access) => ({
+        nombre: access.nombre,
+        correo: access.correo,
+        assignments: access.assignments
+          .filter((assignment) => assignment.activo)
+          .map(({ clave: key, anio: year }) => ({ clave: key, anio: year })),
+      }))
+      .filter((access) => access.assignments.length > 0);
+    const results: { credential?: InitialCredential; error?: string }[] = [];
+    for (let start = 0; start < holders.length; start += 4) {
+      const batch = holders.slice(start, start + 4);
+      setInitialProgress(`Generando ${Math.min(start + batch.length, holders.length)} de ${holders.length}…`);
+      results.push(...await Promise.all(batch.map(async (holder) => {
+        const { data, error: rpcError } = await supabaseClient.rpc('guardar_accesos_titular', {
+          p_usuario: username,
+          p_admin_password: password,
+          p_nombre: holder.nombre,
+          p_correo: holder.correo,
+          p_assignments: holder.assignments,
+        });
+        if (rpcError || !data?.success) {
+          return { error: data?.error || `No se pudo regenerar la contraseña de ${holder.nombre}.` };
+        }
+        return { credential: { ...holder, password: data.password } };
+      })));
+    }
+    const created = results.flatMap((result) => result.credential ? [result.credential] : []);
+    const failureMessage = results.flatMap((result) => result.error ? [result.error] : []).join(' ');
+    setInitialCredentials(created);
+    setCopied(false);
+
+    await loadAccesses();
+    if (failureMessage) setError(failureMessage);
+    setInitialProgress('');
+    setIsSaving(false);
+  };
+
+  const toggleAssignment = (assignmentId: string) => {
+    setSelectedAssignments((current) => current.includes(assignmentId)
+      ? current.filter((id) => id !== assignmentId)
+      : [...current, assignmentId]);
   };
 
   const loadAccesses = async () => {
@@ -107,7 +190,7 @@ export function FormAccessAdmin({ username, password, onClose }: FormAccessAdmin
       setIsLoading(false);
       return;
     }
-    setAccesses((data.accesses ?? []) as AccessRecord[]);
+    setAccesses(normalizeAccesses(data.accesses));
     setError('');
     setIsLoading(false);
   };
@@ -124,13 +207,21 @@ export function FormAccessAdmin({ username, password, onClose }: FormAccessAdmin
     setIssuedPassword('');
     setCopied(false);
 
-    const { data, error: rpcError } = await supabaseClient.rpc('guardar_acceso_captura', {
+    const assignments = assignmentOptions
+      .filter((assignment) => selectedAssignments.includes(assignment.id))
+      .map(({ clave: assignmentKey, anio: assignmentYear }) => ({ clave: assignmentKey, anio: assignmentYear }));
+    if (assignments.length === 0) {
+      setError('Selecciona al menos una clave y un año.');
+      setIsSaving(false);
+      return;
+    }
+
+    const { data, error: rpcError } = await supabaseClient.rpc('guardar_accesos_titular', {
       p_usuario: username,
       p_admin_password: password,
       p_nombre: nombre,
       p_correo: correo,
-      p_clave: clave,
-      p_anio: anio,
+      p_assignments: assignments,
     });
 
     if (rpcError || !data?.success) {
@@ -142,13 +233,13 @@ export function FormAccessAdmin({ username, password, onClose }: FormAccessAdmin
     setIsSaving(false);
   };
 
-  const handleActiveChange = async (access: AccessRecord) => {
+  const handleActiveChange = async (assignment: AssignmentRecord) => {
     if (!supabaseClient) return;
     const { data, error: rpcError } = await supabaseClient.rpc('cambiar_estado_acceso_captura', {
       p_usuario: username,
       p_admin_password: password,
-      p_access_id: access.id,
-      p_activo: !access.activo,
+      p_access_id: assignment.id,
+      p_activo: !assignment.activo,
     });
     if (rpcError || !data?.success) {
       setError(data?.error || 'No fue posible cambiar el estado del acceso.');
@@ -168,13 +259,23 @@ export function FormAccessAdmin({ username, password, onClose }: FormAccessAdmin
 
   const handleCopyInitialCredentials = async () => {
     const text = initialCredentials
-      .map(({ nombre: titular, correo: email, clave: key, anio: year, password: code }) => `${titular}\t${email}\t${key}\t${year}\t${code}`)
+      .map(({ nombre: titular, correo: email, assignments: allowed, password: code }) => `${titular}\t${email}\t${allowed.map(({ clave: key, anio: year }) => `${key}/${year}`).join(', ')}\t${code}`)
       .join('\n');
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
     } catch {
       setError('No se pudo copiar. Selecciona y copia la lista mostrada.');
+    }
+  };
+
+  const handleCopyAccessPassword = async (access: AccessRecord) => {
+    if (!access.password) return;
+    try {
+      await navigator.clipboard.writeText(access.password);
+      setCopiedAccessId(access.titularId);
+    } catch {
+      setError('No se pudo copiar. Selecciona y copia la contraseña mostrada.');
     }
   };
 
@@ -195,7 +296,7 @@ export function FormAccessAdmin({ username, password, onClose }: FormAccessAdmin
         <section className="space-y-4">
           <div>
             <h3 className="text-base font-semibold">Asignar clave y año</h3>
-            <p className="mt-1 text-sm text-slate-600">Cada asignación genera una contraseña distinta, vinculada a un titular, una clave y un año.</p>
+            <p className="mt-1 text-sm text-slate-600">Cada titular tiene una contraseña para todas las claves y años seleccionados.</p>
           </div>
           <form onSubmit={handleSave} className="space-y-3 rounded-lg border border-slate-900/15 bg-white p-4 shadow-sm">
             <label className="block space-y-1 text-sm font-medium">
@@ -206,18 +307,22 @@ export function FormAccessAdmin({ username, password, onClose }: FormAccessAdmin
               <span>Correo</span>
               <input type="email" required maxLength={320} value={correo} onChange={(event) => setCorreo(event.target.value)} className="w-full rounded-md border border-slate-900/20 px-3 py-2 outline-none focus:border-[#611232] focus:ring-2 focus:ring-[#611232]/15" />
             </label>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="block space-y-1 text-sm font-medium">
-                <span>Clave</span>
-                <select value={clave} onChange={(event) => setClave(event.target.value)} className="w-full rounded-md border border-slate-900/20 bg-white px-3 py-2 outline-none focus:border-[#611232]">
-                  {programKeys.map((key) => <option key={key} value={key}>{key}</option>)}
-                </select>
-              </label>
-              <label className="block space-y-1 text-sm font-medium">
-                <span>Año</span>
-                <input type="number" min="2000" max="2100" step="1" required value={anio} onChange={(event) => setAnio(event.target.value)} className="w-full rounded-md border border-slate-900/20 px-3 py-2 outline-none focus:border-[#611232]" />
-              </label>
-            </div>
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-medium">Claves y años autorizados</legend>
+              <div className="grid grid-cols-2 gap-2">
+                {assignmentOptions.map((assignment) => (
+                  <label key={assignment.id} className="flex items-center gap-2 rounded-md border border-slate-900/10 px-2.5 py-2 text-sm hover:bg-slate-50">
+                    <input
+                      type="checkbox"
+                      checked={selectedAssignments.includes(assignment.id)}
+                      onChange={() => toggleAssignment(assignment.id)}
+                      className="h-4 w-4 accent-[#611232]"
+                    />
+                    {assignment.clave} / {assignment.anio}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
             <button type="submit" disabled={isSaving} className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-[#611232] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#4d0e27] disabled:opacity-60">
               {isSaving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               {isSaving ? 'Generando…' : 'Crear o restablecer contraseña'}
@@ -226,8 +331,8 @@ export function FormAccessAdmin({ username, password, onClose }: FormAccessAdmin
 
           {issuedPassword && (
             <div className="rounded-lg border border-emerald-800/25 bg-emerald-50 p-4" role="status">
-              <p className="text-sm font-semibold text-emerald-950">Contraseña nueva · {clave}/{anio}</p>
-              <p className="mt-1 text-xs text-emerald-900">Cópiala y entrégala al titular ahora. No se puede volver a consultar; para recuperarla, genera una nueva.</p>
+              <p className="text-sm font-semibold text-emerald-950">Contraseña única de {nombre}</p>
+              <p className="mt-1 text-xs text-emerald-900">Cópiala y entrégala al titular. Autoriza las combinaciones seleccionadas y se puede volver a consultar aquí.</p>
               <div className="mt-3 flex items-center gap-2">
                 <code className="min-w-0 flex-1 select-all break-all rounded-md border border-emerald-900/20 bg-white px-3 py-2 font-mono text-sm">{issuedPassword}</code>
                 <button type="button" onClick={() => void handleCopyPassword()} title="Copiar contraseña" aria-label="Copiar contraseña" className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-emerald-900/20 bg-white hover:bg-emerald-100">
@@ -255,10 +360,11 @@ export function FormAccessAdmin({ username, password, onClose }: FormAccessAdmin
               </div>
               <div className="mt-3 max-h-72 space-y-2 overflow-auto">
                 {initialCredentials.map((credential) => (
-                  <div key={`${credential.correo}-${credential.clave}-${credential.anio}`} className="grid gap-1 rounded-md border border-amber-900/10 bg-white p-2.5 text-xs sm:grid-cols-[minmax(0,1fr)_auto]">
+                  <div key={credential.correo} className="grid gap-1 rounded-md border border-amber-900/10 bg-white p-2.5 text-xs sm:grid-cols-[minmax(0,1fr)_auto]">
                     <div>
-                      <p className="font-medium">{credential.nombre} · {credential.clave}/{credential.anio}</p>
+                      <p className="font-medium">{credential.nombre}</p>
                       <p className="text-slate-500">{credential.correo}</p>
+                      <p className="mt-1 text-slate-600">{credential.assignments.map(({ clave: key, anio: year }) => `${key}/${year}`).join(', ')}</p>
                     </div>
                     <code className="select-all break-all font-mono">{credential.password}</code>
                   </div>
@@ -269,7 +375,7 @@ export function FormAccessAdmin({ username, password, onClose }: FormAccessAdmin
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
               <h3 className="text-base font-semibold">Asignaciones registradas</h3>
-              <p className="text-sm text-slate-600">Las contraseñas guardadas se almacenan como hash y no son visibles.</p>
+              <p className="text-sm text-slate-600">Las contraseñas se validan con bcrypt y se guardan cifradas en Supabase; solo add.31 puede consultarlas desde aquí.</p>
             </div>
             <button type="button" onClick={() => void loadAccesses()} disabled={isLoading} title="Actualizar asignaciones" aria-label="Actualizar asignaciones" className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-slate-900/20 bg-white hover:bg-slate-50 disabled:opacity-50">
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -277,6 +383,14 @@ export function FormAccessAdmin({ username, password, onClose }: FormAccessAdmin
           </div>
           {isLoading ? (
             <p role="status" className="py-10 text-center text-sm text-slate-500">Cargando asignaciones…</p>
+          ) : accesses.some((access) => !access.password) ? (
+            <div className="space-y-3 rounded-lg border border-slate-900/15 bg-white px-4 py-7 text-center">
+              <p className="text-sm text-slate-600">Hay titulares con contraseñas antiguas por combinación. Genera una sola contraseña por persona para sus permisos activos.</p>
+              <button type="button" onClick={() => void handleCreateTitularPasswords()} disabled={isSaving} className="inline-flex items-center gap-2 rounded-md bg-[#611232] px-3 py-2 text-sm font-semibold text-white hover:bg-[#4d0e27] disabled:opacity-60">
+                {isSaving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+                {isSaving ? initialProgress || 'Preparando…' : 'Generar una contraseña por titular'}
+              </button>
+            </div>
           ) : accesses.length === 0 ? (
             <div className="space-y-3 rounded-lg border border-slate-900/15 bg-white px-4 py-7 text-center">
               <p className="text-sm text-slate-600">Todavía no hay asignaciones.</p>
@@ -287,43 +401,72 @@ export function FormAccessAdmin({ username, password, onClose }: FormAccessAdmin
             </div>
           ) : (
             <div className="overflow-x-auto rounded-lg border border-slate-900/15 bg-white">
-              <table className="w-full min-w-[740px] border-collapse text-left text-sm">
+              <table className="w-full min-w-[820px] border-collapse text-left text-sm">
                 <thead className="bg-slate-100 text-xs uppercase text-slate-600">
                   <tr>
                     <th className="px-3 py-2.5 font-semibold">Titular / correo</th>
-                    <th className="px-3 py-2.5 font-semibold">Clave / año</th>
-                    <th className="px-3 py-2.5 font-semibold">Cuestionario</th>
-                    <th className="px-3 py-2.5 font-semibold">Última entrada</th>
+                    <th className="px-3 py-2.5 font-semibold">Permisos asignados</th>
+                    <th className="px-3 py-2.5 font-semibold">Contraseña</th>
                     <th className="px-3 py-2.5 font-semibold">Acceso</th>
                   </tr>
                 </thead>
                 <tbody>
                   {accesses.map((access) => (
-                    <tr key={access.id} className="border-t border-slate-900/10 align-top">
+                    <tr key={access.titularId} className="border-t border-slate-900/10 align-top">
                       <td className="px-3 py-3">
                         <p className="font-medium">{access.nombre}</p>
                         <p className="break-all text-xs text-slate-500">{access.correo}</p>
                       </td>
-                      <td className="px-3 py-3 font-medium">{access.clave} / {access.anio}</td>
                       <td className="px-3 py-3">
-                        <p>{access.estadoFormulario === 'CONCLUIDO' ? 'Concluido' : access.estadoFormulario === 'EN_CAPTURA' ? 'En captura' : 'Sin iniciar'}</p>
-                        {access.folio && <p className="text-xs text-slate-500">{access.folio}</p>}
-                      </td>
-                      <td className="px-3 py-3">
-                        <p className="font-mono text-xs">{access.entryId || 'Sin entradas'}</p>
-                        {access.enteredAt && <p className="mt-1 text-xs text-slate-500">{new Date(access.enteredAt).toLocaleString('es-MX')}</p>}
-                      </td>
-                      <td className="px-3 py-3">
-                        <div className="flex flex-wrap gap-2">
-                          <button type="button" onClick={() => { setNombre(access.nombre); setCorreo(access.correo); setClave(access.clave); setAnio(access.anio); setIssuedPassword(''); }} className="inline-flex items-center gap-1 rounded border border-slate-900/20 px-2 py-1 text-xs font-medium hover:bg-slate-50">
-                            <KeyRound className="h-3.5 w-3.5" />
-                            Restablecer
-                          </button>
-                          <button type="button" onClick={() => void handleActiveChange(access)} className="inline-flex items-center gap-1 rounded border border-slate-900/20 px-2 py-1 text-xs font-medium hover:bg-slate-50">
-                            {access.activo ? <ShieldOff className="h-3.5 w-3.5" /> : <ShieldCheck className="h-3.5 w-3.5" />}
-                            {access.activo ? 'Revocar' : 'Activar'}
-                          </button>
+                        <div className="flex flex-wrap gap-1.5">
+                          {access.assignments.map((assignment) => (
+                            <span key={assignment.id} className="inline-flex items-center gap-1.5 rounded border border-slate-900/10 bg-slate-50 px-2 py-1 text-xs">
+                              {assignment.clave}/{assignment.anio}
+                              <button
+                                type="button"
+                                onClick={() => void handleActiveChange(assignment)}
+                                aria-label={`${assignment.activo ? 'Revocar' : 'Activar'} ${assignment.clave}/${assignment.anio} para ${access.nombre}`}
+                                title={assignment.activo ? 'Revocar combinación' : 'Activar combinación'}
+                                className="grid h-5 w-5 place-items-center rounded hover:bg-white"
+                              >
+                                {assignment.activo ? <ShieldOff className="h-3 w-3" /> : <ShieldCheck className="h-3 w-3" />}
+                              </button>
+                            </span>
+                          ))}
                         </div>
+                      </td>
+                      <td className="px-3 py-3">
+                        {access.password ? (
+                          <div className="flex max-w-[260px] items-center gap-2">
+                            <code className="min-w-0 flex-1 select-all break-all font-mono text-xs">{access.password}</code>
+                            <button
+                              type="button"
+                              onClick={() => void handleCopyAccessPassword(access)}
+                              title="Copiar contraseña"
+                              aria-label={`Copiar contraseña de ${access.nombre}`}
+                              className="grid h-8 w-8 shrink-0 place-items-center rounded border border-slate-900/15 hover:bg-slate-50"
+                            >
+                              {copiedAccessId === access.titularId ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-500">Sin contraseña cifrada</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNombre(access.nombre);
+                            setCorreo(access.correo);
+                            setSelectedAssignments(access.assignments.filter((assignment) => assignment.activo).map((assignment) => `${assignment.clave}::${assignment.anio}`));
+                            setIssuedPassword('');
+                          }}
+                          className="inline-flex items-center gap-1 rounded border border-slate-900/20 px-2 py-1 text-xs font-medium hover:bg-slate-50"
+                        >
+                          <KeyRound className="h-3.5 w-3.5" />
+                          Restablecer contraseña
+                        </button>
                       </td>
                     </tr>
                   ))}

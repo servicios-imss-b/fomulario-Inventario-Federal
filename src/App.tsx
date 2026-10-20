@@ -206,7 +206,7 @@ export default function App() {
   // Cargar solo el borrador de la asignación autenticada.
   useEffect(() => {
     if (!formAccess) return;
-    setIndexedDbScope(formAccess.credentialId, formAccess.clave, formAccess.anio);
+    setIndexedDbScope(formAccess.accessId, formAccess.clave, formAccess.anio);
     let isMounted = true;
 
     const loadStoredData = async () => {
@@ -479,7 +479,7 @@ export default function App() {
   };
 
   const handleFormAccessSelect = (access: FormAccessSession) => {
-    ApiService.setFormAccess({ credentialId: access.credentialId, password: access.password });
+    ApiService.setFormAccess({ accessId: access.accessId, password: access.password });
     setIsScopeLoading(true);
     setRespuestas({});
     setArchivos([]);
