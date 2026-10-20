@@ -2,6 +2,16 @@ import { DatosUsuario, RespuestaItem, ArchivoAdjunto } from '../types/form';
 
 const DB_BASE_NAME = 'inegi_inventario_federal_db';
 const DB_VERSION = 1;
+const SYNC_QUEUE_TTL_MS = 24 * 60 * 60 * 1000;
+const SYNC_QUEUE_RESET_VERSION = 1;
+const SYNC_QUEUE_RESET_KEY = 'sync_queue_reset_version';
+
+interface SyncQueueItem {
+  id: number;
+  tipo: string;
+  payload: any;
+  fecha: string;
+}
 
 let dbName = DB_BASE_NAME;
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -250,15 +260,91 @@ export async function enqueueSync(item: { tipo: string; payload: any; fecha: str
   }
 }
 
-export async function getSyncQueue(): Promise<Array<{ id: number; tipo: string; payload: any; fecha: string }>> {
+async function markExpiredSyncItems(items: SyncQueueItem[]): Promise<void> {
+  try {
+    const expiredAnswers = items.filter((item) => item.tipo === 'respuesta');
+    if (expiredAnswers.length > 0) {
+      const answers = await getAllRespuestasLocal();
+      await Promise.all(expiredAnswers.map(async (item) => {
+        const answer = answers[item.payload?.preguntaId];
+        if (answer?.estado === 'pendiente_sync'
+          && answer.fechaActualizacion === item.payload?.fechaActualizacion) {
+          await saveRespuestaLocal({ ...answer, estado: 'error' });
+        }
+      }));
+    }
+
+    const expiredFiles = items.filter((item) => item.tipo === 'archivo');
+    if (expiredFiles.length > 0) {
+      const files = await getArchivosLocal();
+      await Promise.all(expiredFiles.map(async (item) => {
+        const file = files.find((candidate) => candidate.id === item.payload?.id);
+        if (file?.estado === 'pendiente_sync') {
+          await saveArchivoLocal({ ...file, estado: 'error' });
+        }
+      }));
+    }
+  } catch (error) {
+    console.warn('No se pudo actualizar el estado local de elementos vencidos.', error);
+  }
+}
+
+export async function getSyncQueue(): Promise<SyncQueueItem[]> {
   try {
     const db = await getDB();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction('colaSincronizacion', 'readonly');
+      const tx = db.transaction(['colaSincronizacion', 'metaFormulario'], 'readwrite');
       const store = tx.objectStore('colaSincronizacion');
-      const req = store.getAll();
-      req.onsuccess = () => resolve(req.result || []);
-      req.onerror = () => reject(req.error);
+      const queueRequest = store.getAll();
+      const markerRequest = tx.objectStore('metaFormulario').get(SYNC_QUEUE_RESET_KEY);
+      let queueLoaded = false;
+      let markerLoaded = false;
+      let allItems: SyncQueueItem[] = [];
+      let markerVersion = 0;
+      let activeItems: SyncQueueItem[] = [];
+      let expiredItems: SyncQueueItem[] = [];
+
+      const classifyItems = () => {
+        if (!queueLoaded || !markerLoaded) return;
+        if (markerVersion < SYNC_QUEUE_RESET_VERSION) {
+          expiredItems = allItems;
+          activeItems = [];
+          store.clear();
+          tx.objectStore('metaFormulario').put({
+            id: SYNC_QUEUE_RESET_KEY,
+            version: SYNC_QUEUE_RESET_VERSION,
+            appliedAt: new Date().toISOString(),
+          });
+          return;
+        }
+
+        const now = Date.now();
+        expiredItems = allItems.filter((item) => {
+          const createdAt = Date.parse(item.fecha);
+          return !Number.isFinite(createdAt) || now - createdAt >= SYNC_QUEUE_TTL_MS;
+        });
+        const expiredIds = new Set(expiredItems.map((item) => item.id));
+        activeItems = allItems.filter((item) => !expiredIds.has(item.id));
+        expiredItems.forEach((item) => store.delete(item.id));
+      };
+
+      queueRequest.onsuccess = () => {
+        allItems = (queueRequest.result || []) as SyncQueueItem[];
+        queueLoaded = true;
+        classifyItems();
+      };
+      markerRequest.onsuccess = () => {
+        markerVersion = Number(markerRequest.result?.version ?? 0);
+        markerLoaded = true;
+        classifyItems();
+      };
+      queueRequest.onerror = () => reject(queueRequest.error);
+      markerRequest.onerror = () => reject(markerRequest.error);
+      tx.oncomplete = () => {
+        void markExpiredSyncItems(expiredItems).then(() => resolve(activeItems));
+      };
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
     });
   } catch {
     return [];

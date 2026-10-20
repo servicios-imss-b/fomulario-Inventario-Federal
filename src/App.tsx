@@ -331,6 +331,9 @@ export default function App() {
       apiDisponible: isOnline,
       elementosPendientes: queue.length,
     }));
+    if (queue.length === 0) {
+      setEstadoGuardado((current) => current === 'pendiente' ? 'error' : current);
+    }
 
     // Auto-sync al volver la red
     if (isOnline && queue.length > 0 && !syncInProgressRef.current && Date.now() >= nextAutoSyncAttemptRef.current) {
