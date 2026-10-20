@@ -353,12 +353,7 @@ export const Header: React.FC<HeaderProps> = ({
                   : 'bg-rose-950/70 border-rose-500/40 text-rose-300'
               }`}
             >
-              {estadoConexion.sincronizando ? (
-                <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#A57F2C]" />
-                  <span className="hidden sm:inline">↻ SINCRONIZANDO</span>
-                </>
-              ) : estadoConexion.online && estadoConexion.apiDisponible ? (
+              {estadoConexion.online && estadoConexion.apiDisponible ? (
                 <>
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                   <span className="hidden sm:inline">CONECTADO</span>
@@ -377,11 +372,11 @@ export const Header: React.FC<HeaderProps> = ({
                 type="button"
                 onClick={onManualSync}
                 disabled={!onManualSync || estadoConexion.sincronizando}
-                className="hidden md:flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-amber-200 bg-amber-950/80 hover:bg-amber-900/90 border border-amber-500/40 rounded-full transition-all"
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-amber-200 bg-amber-950/80 hover:bg-amber-900/90 border border-amber-500/40 rounded-full transition-all"
                 title="Reintentar sincronización de los cambios locales pendientes"
               >
-                <RefreshCw className="w-3 h-3" />
-                <span>Sync ({estadoConexion.elementosPendientes})</span>
+                <RefreshCw className={`w-3 h-3 ${estadoConexion.sincronizando ? 'animate-spin' : ''}`} />
+                <span>{estadoConexion.sincronizando ? 'Enviando' : 'Sync'} ({estadoConexion.elementosPendientes})</span>
               </button>
             )}
 

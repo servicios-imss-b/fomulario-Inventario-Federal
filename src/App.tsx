@@ -146,6 +146,9 @@ export default function App() {
 
   const saveTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({});
   const accessLoadingTimeoutRef = useRef<number | null>(null);
+  const syncInProgressRef = useRef(false);
+  const syncRetryDelayRef = useRef(15_000);
+  const nextAutoSyncAttemptRef = useRef(0);
   const claveProgramaActual = String(respuestas['clave_programa']?.valor ?? '').trim();
   const anioProgramaActual = String(respuestas['anio_captura']?.valor ?? '').trim();
   const captureScope = getCaptureScope(claveProgramaActual, anioProgramaActual);
@@ -330,21 +333,29 @@ export default function App() {
     }));
 
     // Auto-sync al volver la red
-    if (isOnline && queue.length > 0 && !estadoConexion.sincronizando) {
+    if (isOnline && queue.length > 0 && !syncInProgressRef.current && Date.now() >= nextAutoSyncAttemptRef.current) {
+      syncInProgressRef.current = true;
       setEstadoConexion((prev) => ({ ...prev, sincronizando: true }));
+      let syncedCount = 0;
       try {
-        const count = await ApiService.syncPendingQueue();
-        if (count > 0) {
+        syncedCount = await ApiService.syncPendingQueue();
+        if (syncedCount > 0) {
           setArchivos(await getArchivosLocal());
-          addToast(`Sincronización completada (${count} elementos)`, 'success');
-          if (await getSyncQueue().then((remaining) => remaining.length === 0)) {
-            setEstadoGuardado('guardado');
-          }
+          addToast(`Sincronización completada (${syncedCount} elementos)`, 'success');
         }
       } catch (e) {
         console.warn('Error durante auto-sync', e);
       } finally {
         const remainingQueue = await getSyncQueue();
+        if (remainingQueue.length === 0) {
+          syncRetryDelayRef.current = 15_000;
+          nextAutoSyncAttemptRef.current = 0;
+          if (syncedCount > 0) setEstadoGuardado('guardado');
+        } else {
+          nextAutoSyncAttemptRef.current = Date.now() + syncRetryDelayRef.current;
+          syncRetryDelayRef.current = Math.min(syncRetryDelayRef.current * 2, 5 * 60_000);
+        }
+        syncInProgressRef.current = false;
         setEstadoConexion((prev) => ({
           ...prev,
           sincronizando: false,
@@ -360,6 +371,7 @@ export default function App() {
     const interval = setInterval(checkConnectivity, 12000);
 
     const handleOnline = () => {
+      nextAutoSyncAttemptRef.current = 0;
       addToast('Conexión reestablecida.', 'info');
       checkConnectivity();
     };
@@ -603,9 +615,13 @@ export default function App() {
 
   // 6. Sincronización manual
   const handleManualSync = async () => {
+    if (syncInProgressRef.current) return;
+    syncInProgressRef.current = true;
+    nextAutoSyncAttemptRef.current = 0;
     setEstadoConexion((prev) => ({ ...prev, sincronizando: true }));
+    let count = 0;
     try {
-      const count = await ApiService.syncPendingQueue();
+      count = await ApiService.syncPendingQueue();
       if (count > 0) setArchivos(await getArchivosLocal());
       const remainingQueue = await getSyncQueue();
       if (remainingQueue.length === 0) {
@@ -618,6 +634,15 @@ export default function App() {
       addToast('No fue posible sincronizar en este momento.', 'error');
     } finally {
       const queue = await getSyncQueue();
+      if (queue.length === 0) {
+        syncRetryDelayRef.current = 15_000;
+        nextAutoSyncAttemptRef.current = 0;
+        if (count > 0) setEstadoGuardado('guardado');
+      } else {
+        nextAutoSyncAttemptRef.current = Date.now() + syncRetryDelayRef.current;
+        syncRetryDelayRef.current = Math.min(syncRetryDelayRef.current * 2, 5 * 60_000);
+      }
+      syncInProgressRef.current = false;
       setEstadoConexion((prev) => ({
         ...prev,
         sincronizando: false,

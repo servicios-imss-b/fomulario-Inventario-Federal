@@ -366,6 +366,25 @@ export class ApiService {
         throw new Error(`No se pudo registrar en Supabase: ${error.message}`);
       }
 
+      const queuedItems = await getSyncQueue();
+      const submittedSections = payload.submittedSections ?? [];
+      for (const item of queuedItems) {
+        if (item.tipo === 'respuesta') {
+          const questionId = item.payload?.preguntaId;
+          const submittedAnswer = payload.respuestas[questionId];
+          const queuedTimestamp = Date.parse(item.payload?.fechaActualizacion ?? '');
+          const submittedTimestamp = Date.parse(submittedAnswer?.fechaActualizacion ?? '');
+          if (!submittedAnswer || !Number.isFinite(queuedTimestamp)
+            || !Number.isFinite(submittedTimestamp) || submittedTimestamp < queuedTimestamp) continue;
+          await saveRespuestaLocal({ ...item.payload, estado: 'guardado' });
+          await removeSyncItem(item.id);
+        } else if (item.tipo === 'progreso') {
+          const queuedSections = item.payload?.submittedSections;
+          if (!Array.isArray(queuedSections) || !queuedSections.every((section: string) => submittedSections.includes(section))) continue;
+          await removeSyncItem(item.id);
+        }
+      }
+
       return {
         success: true,
         folio: data?.folio || fallbackFolio,
