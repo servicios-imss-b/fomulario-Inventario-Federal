@@ -16,6 +16,11 @@ export class ApiService {
   private static isApiAvailable: boolean = true;
   private static lastCheckTime: number = 0;
   private static checkInterval: number = 10000; // 10s
+  private static lastSyncError: string | null = null;
+
+  public static getLastSyncError(): string | null {
+    return this.lastSyncError;
+  }
 
   public static async checkConnection(): Promise<boolean> {
     const now = Date.now();
@@ -229,15 +234,22 @@ export class ApiService {
   }
 
   public static async syncPendingQueue(): Promise<number> {
+    this.lastSyncError = null;
     const online = await this.checkConnection();
-    if (!online) return 0;
+    if (!online) {
+      this.lastSyncError = 'Supabase no responde o el navegador está sin conexión.';
+      return 0;
+    }
 
     const queue = await getSyncQueue();
     if (queue.length === 0) return 0;
 
     if (supabaseClient) {
       const access = this.formAccess;
-      if (!access) return 0;
+      if (!access) {
+        this.lastSyncError = 'La sesión de captura expiró. Vuelve a validar la contraseña.';
+        return 0;
+      }
       let syncedCount = 0;
       for (const item of queue) {
         try {
@@ -249,6 +261,9 @@ export class ApiService {
             });
             const responseBody = await response.json().catch(() => ({}));
             if (!response.ok || !responseBody.success) {
+              this.lastSyncError ??= response.status === 404
+                ? 'El servidor de archivos (/api/archivos) no está disponible en este sitio.'
+                : responseBody.error || `El servidor de archivos respondió HTTP ${response.status}.`;
               console.warn('No se pudo sincronizar un archivo pendiente.', {
                 status: response.status,
                 error: responseBody.error,
@@ -281,12 +296,16 @@ export class ApiService {
               : null;
           if (!result || result.error) {
             if (result?.error) {
+              this.lastSyncError ??= result.error.code === '42501'
+                ? 'Supabase rechazó la sesión o el cuestionario ya está cerrado.'
+                : result.error.message || 'Supabase rechazó una respuesta pendiente.';
               console.warn('No se pudo sincronizar una respuesta pendiente.', {
                 preguntaId: item.tipo === 'respuesta' ? item.payload.preguntaId : undefined,
                 code: result.error.code,
                 message: result.error.message,
               });
             }
+            if (!result) this.lastSyncError ??= `Tipo de elemento local no compatible: ${item.tipo}.`;
             continue;
           }
           if (item.tipo === 'respuesta') {
@@ -294,7 +313,8 @@ export class ApiService {
           }
           await removeSyncItem(item.id);
           syncedCount++;
-        } catch {
+        } catch (error) {
+          this.lastSyncError ??= error instanceof Error ? error.message : 'Error inesperado al sincronizar.';
           continue;
         }
       }

@@ -628,7 +628,10 @@ export default function App() {
         addToast(`Sincronización completada: ${count} elementos procesados.`, 'success');
         if (count > 0) setEstadoGuardado('guardado');
       } else {
-        addToast(`Quedan ${remainingQueue.length} elementos locales. Revisa la conexión y vuelve a intentar.`, 'warning');
+        const syncError = ApiService.getLastSyncError();
+        addToast(syncError
+          ? `Quedan ${remainingQueue.length} elementos locales. ${syncError}`
+          : `Quedan ${remainingQueue.length} elementos locales. Revisa la conexión y vuelve a intentar.`, 'warning');
       }
     } catch {
       addToast('No fue posible sincronizar en este momento.', 'error');
