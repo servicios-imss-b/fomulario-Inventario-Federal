@@ -83,6 +83,33 @@ export function FrontValidationAccess({ onClose }: FrontValidationAccessProps) {
       if (event.origin !== window.location.origin || event.source !== iframeRef.current?.contentWindow) return;
       if (event.data?.type === 'reporte-new-ready') sendData();
       if (event.data?.type === 'reporte-new-refresh') void refreshReport();
+      if (event.data?.type === 'reporte-new-file-download') {
+        const credentials = credentialsRef.current;
+        const requestId = typeof event.data.requestId === 'string' ? event.data.requestId : '';
+        const storagePath = typeof event.data.storagePath === 'string' ? event.data.storagePath : '';
+        const sendDownloadResult = (result: { url?: string; error?: string }) => {
+          iframeRef.current?.contentWindow?.postMessage({
+            type: 'reporte-file-download-result',
+            requestId,
+            ...result,
+          }, window.location.origin);
+        };
+
+        if (!credentials || !supabaseClient || !requestId || !storagePath) {
+          sendDownloadResult({ error: 'No se pudo validar la sesión del reporte.' });
+          return;
+        }
+
+        void supabaseClient.functions.invoke('archivos-reporte', {
+          body: { ...credentials, storagePath },
+        }).then(({ data, error: downloadError }) => {
+          if (downloadError || !data?.success || typeof data?.url !== 'string') {
+            sendDownloadResult({ error: data?.error || 'No se pudo generar la descarga.' });
+            return;
+          }
+          sendDownloadResult({ url: data.url });
+        }).catch(() => sendDownloadResult({ error: 'No fue posible conectar con el servicio de descargas.' }));
+      }
     };
 
     window.addEventListener('message', handleReportMessage);

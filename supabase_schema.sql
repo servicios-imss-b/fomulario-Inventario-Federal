@@ -38,7 +38,7 @@ create table public.archivos (
   tipo varchar(120) not null,
   tamanio bigint not null check (tamanio > 0 and tamanio <= 15728640),
   extension varchar(10) not null check (lower(extension) in ('.pdf', '.doc', '.docx', '.xls', '.xlsx')),
-  proveedor_almacenamiento varchar(40) not null default 'google_drive',
+  proveedor_almacenamiento varchar(40) not null default 'supabase_storage',
   almacenamiento_id text,
   ruta_almacenamiento text,
   fecha_carga timestamptz not null default now(),

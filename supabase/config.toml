@@ -1,3 +1,11 @@
 [functions.reporte-relacional]
-verify_jwt = true[functions.reporte-relacional]
 verify_jwt = true
+
+[functions.archivos-drive]
+verify_jwt = false
+
+[functions.archivos-storage]
+verify_jwt = false
+
+[functions.archivos-reporte]
+verify_jwt = false

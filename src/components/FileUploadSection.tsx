@@ -8,6 +8,7 @@ import {
   CheckCircle,
   Clock,
   AlertTriangle,
+  Download,
   Send,
   File,
 } from 'lucide-react';
@@ -16,6 +17,7 @@ interface FileUploadSectionProps {
   archivos: ArchivoAdjunto[];
   isOnline: boolean;
   onUpload: (archivo: ArchivoAdjunto) => Promise<void>;
+  onDownload?: (archivo: ArchivoAdjunto) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onSubmit?: () => void;
 }
@@ -34,13 +36,25 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
   archivos,
   isOnline,
   onUpload,
+  onDownload,
   onDelete,
   onSubmit,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [downloadingFileId, setDownloadingFileId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDownload = async (archivo: ArchivoAdjunto) => {
+    if (!onDownload) return;
+    setDownloadingFileId(archivo.id);
+    try {
+      await onDownload(archivo);
+    } finally {
+      setDownloadingFileId(null);
+    }
+  };
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 B';
@@ -141,7 +155,7 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
             <span className="px-3 py-1 rounded-full bg-[#611232] text-[#A57F2C] text-xs font-bold uppercase tracking-wider border border-[#A57F2C]/40">
               DOCUMENTACIÓN / ARCHIVOS
             </span>
-            <span className="text-xs text-stone-300 font-medium">PDF · XLS · XLSX · Máximo 15 MB</span>
+            <span className="text-xs text-stone-300 font-medium">PDF · Word · Excel · Máximo 15 MB</span>
           </div>
           <h2 className="text-xl sm:text-2xl md:text-3xl font-serif font-bold text-stone-100">
             Adjuntar Archivos y Evidencia Documental
@@ -265,14 +279,29 @@ export const FileUploadSection: React.FC<FileUploadSectionProps> = ({
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => onDelete(arch.id)}
-                      className="self-end sm:self-center px-3 py-1.5 rounded-lg text-xs font-medium text-rose-300 hover:text-white bg-rose-950/40 hover:bg-rose-900 border border-rose-500/30 flex items-center gap-1.5 transition cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>ELIMINAR</span>
-                    </button>
+                    <div className="flex items-center gap-2 self-end sm:self-center">
+                      {onDownload && arch.estado === 'sincronizado' && (arch.url || arch.storagePath || arch.driveFileId) && (
+                        <button
+                          type="button"
+                          onClick={() => void handleDownload(arch)}
+                          disabled={downloadingFileId === arch.id}
+                          title="Descargar archivo"
+                          aria-label={`Descargar ${arch.nombre}`}
+                          className="px-3 py-1.5 rounded-lg text-xs font-medium text-emerald-200 hover:text-white bg-emerald-950/40 hover:bg-emerald-900 border border-emerald-500/30 flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>{downloadingFileId === arch.id ? 'PREPARANDO' : 'DESCARGAR'}</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => onDelete(arch.id)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium text-rose-300 hover:text-white bg-rose-950/40 hover:bg-rose-900 border border-rose-500/30 flex items-center gap-1.5 transition cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>ELIMINAR</span>
+                      </button>
+                    </div>
                   </div>
                 );
               })}

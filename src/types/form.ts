@@ -82,7 +82,9 @@ export interface ArchivoAdjunto {
   estado: 'sincronizado' | 'pendiente_sync' | 'error';
   url?: string;
   driveFileId?: string;
-  proveedorAlmacenamiento?: 'google_drive';
+  almacenamientoId?: string;
+  storagePath?: string;
+  proveedorAlmacenamiento?: 'google_drive' | 'supabase_storage';
   dataBase64?: string;
 }
 

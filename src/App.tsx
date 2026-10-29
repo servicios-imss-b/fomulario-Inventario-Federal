@@ -616,6 +616,26 @@ export default function App() {
     addToast('Archivo eliminado.', 'info');
   };
 
+  const handleFileDownload = async (archivo: ArchivoAdjunto) => {
+    const downloadWindow = window.open('about:blank', '_blank');
+    try {
+      const url = await ApiService.getArchivoDownloadUrl(archivo);
+      if (downloadWindow) {
+        downloadWindow.opener = null;
+        downloadWindow.location.replace(url);
+      } else {
+        const link = document.createElement('a');
+        link.href = url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.click();
+      }
+    } catch (error) {
+      downloadWindow?.close();
+      addToast(error instanceof Error ? error.message : 'No se pudo descargar el archivo.', 'error');
+    }
+  };
+
   // 6. Sincronización manual
   const handleManualSync = async () => {
     if (syncInProgressRef.current) return;
@@ -965,6 +985,7 @@ export default function App() {
             archivos={archivos}
             isOnline={estadoConexion.online && estadoConexion.apiDisponible}
             onUpload={handleFileUpload}
+            onDownload={handleFileDownload}
             onDelete={handleFileDelete}
             onSubmit={() => setIsConfirmationOpen(true)}
           />

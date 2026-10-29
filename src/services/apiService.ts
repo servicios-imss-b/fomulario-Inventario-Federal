@@ -190,6 +190,86 @@ export class ApiService {
     }
   }
 
+  private static async sendArchivo(archivo: ArchivoAdjunto): Promise<Partial<ArchivoAdjunto>> {
+    if (supabaseClient) {
+      if (!this.formAccess) throw new Error('Vuelve a validar la contrasena de acceso.');
+      const { data, error } = await supabaseClient.functions.invoke('archivos-storage', {
+        body: {
+          action: 'create-upload',
+          archivo: { id: archivo.id, nombre: archivo.nombre, tamanio: archivo.tamanio },
+          accessId: this.formAccess.accessId,
+          password: this.formAccess.password,
+        },
+      });
+      if (error?.context instanceof Response) {
+        const failure = await error.context.clone().json().catch(() => ({}));
+        throw new Error(failure.error || 'El servicio de archivos no esta disponible. El archivo sigue pendiente en este navegador.');
+      }
+      if (error || !data?.success || !data?.data?.storagePath || !data?.data?.uploadToken) {
+        throw new Error(data?.error || 'No se pudo preparar la carga en Supabase Storage.');
+      }
+      if (typeof archivo.dataBase64 !== 'string') {
+        throw new Error('No se encontro el contenido local del archivo. Selecciona el original.');
+      }
+      const encoded = archivo.dataBase64.includes(',')
+        ? archivo.dataBase64.slice(archivo.dataBase64.indexOf(',') + 1)
+        : archivo.dataBase64;
+      const binary = atob(encoded);
+      if (binary.length !== archivo.tamanio) throw new Error('El tamano no coincide con el contenido del archivo.');
+      const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+      const blob = new Blob([bytes.buffer as ArrayBuffer], { type: archivo.tipo || 'application/octet-stream' });
+      const { error: uploadError } = await supabaseClient.storage
+        .from('ipads-archivos')
+        .uploadToSignedUrl(data.data.storagePath, data.data.uploadToken, blob, {
+          contentType: archivo.tipo || 'application/octet-stream',
+          upsert: true,
+        });
+      if (uploadError) throw new Error(`Supabase Storage no recibio el archivo: ${uploadError.message}`);
+      return {
+        almacenamientoId: data.data.almacenamientoId,
+        storagePath: data.data.storagePath,
+        proveedorAlmacenamiento: 'supabase_storage',
+      };
+    }
+
+    const response = await fetch(`${API_BASE}/archivos/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(archivo),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || !body.success || !body.data?.driveFileId || !body.data?.url) {
+      throw new Error(body.error || `El servidor de archivos respondio HTTP ${response.status}.`);
+    }
+    return body.data;
+  }
+
+  public static async getArchivoDownloadUrl(archivo: ArchivoAdjunto): Promise<string> {
+    if (archivo.proveedorAlmacenamiento === 'google_drive' || (archivo.url && !archivo.storagePath)) {
+      if (!archivo.url) throw new Error('El enlace de descarga de Drive no esta disponible.');
+      return archivo.url;
+    }
+    if (!supabaseClient || !this.formAccess) {
+      throw new Error('Vuelve a validar el acceso para descargar este archivo.');
+    }
+    const { data, error } = await supabaseClient.functions.invoke('archivos-storage', {
+      body: {
+        action: 'create-download',
+        accessId: this.formAccess.accessId,
+        password: this.formAccess.password,
+        archivo: { id: archivo.id, nombre: archivo.nombre },
+      },
+    });
+    if (error?.context instanceof Response) {
+      const failure = await error.context.clone().json().catch(() => ({}));
+      throw new Error(failure.error || 'No se pudo generar la descarga.');
+    }
+    if (error || !data?.success || typeof data?.data?.url !== 'string') {
+      throw new Error(data?.error || 'No se pudo generar la descarga.');
+    }
+    return data.data.url;
+  }
+
   public static async uploadArchivo(archivo: ArchivoAdjunto): Promise<{ synced: boolean; error?: string; archivo?: ArchivoAdjunto }> {
     const pendingFile = { ...archivo, estado: 'pendiente_sync' as const };
     await saveArchivoLocal(pendingFile);
@@ -205,24 +285,15 @@ export class ApiService {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/archivos/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(archivo),
-      });
-
-      const responseBody = await res.json().catch(() => ({}));
-      if (res.ok) {
-        const syncedArch: ArchivoAdjunto = {
-          ...archivo,
-          ...responseBody.data,
-          estado: 'sincronizado',
-          dataBase64: undefined,
-        };
-        await saveArchivoLocal(syncedArch);
-        return { synced: true, archivo: syncedArch };
-      }
-      throw new Error(responseBody.error || 'No se pudo guardar el archivo en Google Drive.');
+      const data = await this.sendArchivo(archivo);
+      const syncedArch: ArchivoAdjunto = {
+        ...archivo,
+        ...data,
+        estado: 'sincronizado',
+        dataBase64: undefined,
+      };
+      await saveArchivoLocal(syncedArch);
+      return { synced: true, archivo: syncedArch };
     } catch (error) {
       await enqueueSync({
         tipo: 'archivo',
@@ -254,25 +325,10 @@ export class ApiService {
       for (const item of queue) {
         try {
           if (item.tipo === 'archivo') {
-            const response = await fetch(`${API_BASE}/archivos/`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(item.payload),
-            });
-            const responseBody = await response.json().catch(() => ({}));
-            if (!response.ok || !responseBody.success) {
-              this.lastSyncError ??= response.status === 404
-                ? 'El servidor de archivos (/api/archivos) no está disponible en este sitio.'
-                : responseBody.error || `El servidor de archivos respondió HTTP ${response.status}.`;
-              console.warn('No se pudo sincronizar un archivo pendiente.', {
-                status: response.status,
-                error: responseBody.error,
-              });
-              continue;
-            }
+            const data = await this.sendArchivo(item.payload);
             await saveArchivoLocal({
               ...item.payload,
-              ...responseBody.data,
+              ...data,
               estado: 'sincronizado',
               dataBase64: undefined,
             });

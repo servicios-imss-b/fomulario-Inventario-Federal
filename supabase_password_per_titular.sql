@@ -197,11 +197,21 @@ as $$
 declare
   v_titular record;
   v_assignments jsonb;
+  v_encryption_key text;
 begin
+  select secret_value into v_encryption_key
+  from private.form_access_config
+  where secret_name = 'form_password_encryption_key';
+
   select id, nombre, correo into v_titular
-  from private.form_titulares
-  where password_activo
-    and password_hash = extensions.crypt(coalesce(p_password, ''), password_hash)
+  from private.form_titulares t
+  where t.password_activo
+    and (
+      (t.password_cipher is not null
+        and extensions.pgp_sym_decrypt(decode(t.password_cipher, 'base64'), v_encryption_key) = coalesce(p_password, ''))
+      or (t.password_cipher is null
+        and t.password_hash = extensions.crypt(coalesce(p_password, ''), t.password_hash))
+    )
   limit 1;
 
   if not found then
@@ -469,8 +479,12 @@ begin
     if v_archivo_extension not in ('.pdf', '.doc', '.docx', '.xls', '.xlsx') then raise exception 'Extension de archivo no permitida.' using errcode = '22023'; end if;
     insert into public.archivos (formulario_id, nombre, tipo, tamanio, extension, proveedor_almacenamiento, almacenamiento_id, ruta_almacenamiento, estado)
     values (v_formulario_id, left(coalesce(v_archivo ->> 'nombre', 'archivo'), 255), left(coalesce(v_archivo ->> 'tipo', 'application/octet-stream'), 120),
-      v_archivo_tamanio, v_archivo_extension, coalesce(nullif(v_archivo ->> 'proveedorAlmacenamiento', ''), 'google_drive'),
-      nullif(v_archivo ->> 'driveFileId', ''), nullif(v_archivo ->> 'url', ''), coalesce(nullif(v_archivo ->> 'estado', ''), 'pendiente'));
+      v_archivo_tamanio, v_archivo_extension,
+      coalesce(nullif(v_archivo ->> 'proveedorAlmacenamiento', ''),
+        case when nullif(v_archivo ->> 'driveFileId', '') is not null then 'google_drive' else 'supabase_storage' end),
+      coalesce(nullif(v_archivo ->> 'almacenamientoId', ''), nullif(v_archivo ->> 'driveFileId', '')),
+      coalesce(nullif(v_archivo ->> 'storagePath', ''), nullif(v_archivo ->> 'rutaAlmacenamiento', ''), nullif(v_archivo ->> 'url', '')),
+      coalesce(nullif(v_archivo ->> 'estado', ''), 'pendiente'));
   end loop;
   return jsonb_build_object('success', true, 'id', v_formulario_id, 'folio', v_folio, 'fecha', v_fecha_finalizacion);
 end;
