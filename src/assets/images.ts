@@ -3,9 +3,9 @@
  * Fondos temáticos de Equipamiento Médico, Unidades de Salud y Personal de Captura
  */
 
-import fondoInicio from '../../imagenes/inicio.jpg';
-import fondoUsuario from '../../imagenes/usuario.jpg';
-import fondoFormulario from '../../imagenes/formulario.png';
+import fondoInicio from './inicio.jpg';
+import fondoUsuario from './usuario.jpg';
+import fondoFormulario from './formulario.png';
 
 export const ASSET_IMAGES = {
   inicio: fondoInicio,

@@ -1,8 +1,8 @@
 import React from 'react';
 import { EstadoConexion } from '../types/form';
 import { Wifi, WifiOff, RefreshCw, CheckCircle, ShieldCheck, Database, X, ChevronDown, Lock, LogOut } from 'lucide-react';
-import logoNacional from '../../../imagenes/logonacional.svg';
-import eggsGif from '../../../imagenes/eggs.gif';
+import logoNacional from '../assets/logonacional.svg';
+import eggsGif from '../assets/eggs.gif';
 
 interface HeaderProps {
   estadoConexion: EstadoConexion;
